@@ -16,6 +16,8 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  // « Prénom NOM »
+  function nomG(g) { g = g || {}; return (g.prenom || '') + ' ' + String(g.nom || '').toUpperCase(); }
   function stocker(cle, val) { try { if (val == null) localStorage.removeItem(cle); else localStorage.setItem(cle, val); } catch (e) {} }
   function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
   var TZ = 'Europe/Paris';
@@ -191,8 +193,8 @@
         '<button class="bouton second" type="button" data-aller="gourmets">Mes gourmets et leurs liens</button></div>' +
         '<section class="carte"><h2 style="margin:0 0 10px;font-size:18px">Mails</h2><div class="actions" style="margin:0">' +
         '<button class="bouton" type="button" data-arrivee>Les fromages sont arrivés : prévenir tout le monde</button>' +
-        '<button class="bouton second" type="button" data-ouverture>Envoyer le mail d\u2019ouverture aux gourmets qui ne l\u2019ont pas reçu</button></div>' +
-        '<p style="font-size:13px;color:var(--texte-doux);margin:10px 0 0">Automatiques : confirmation à chaque commande, mail à l\u2019ouverture, rappels 3 jours avant et la veille.</p></section>';
+        '<button class="bouton second" type="button" data-ouverture>Envoyer le mail d’ouverture aux gourmets qui ne l’ont pas reçu</button></div>' +
+        '<p style="font-size:13px;color:var(--texte-doux);margin:10px 0 0">Automatiques : confirmation à chaque commande, mail à l’ouverture, rappels 3 jours avant et la veille.</p></section>';
       app.innerHTML = h;
       app.onclick = function (e) {
         var b = e.target.closest('button'); if (!b) return;
@@ -227,7 +229,7 @@
         liste.forEach(function (c) {
           var g = c.gourmet || {};
           h += '<div><button type="button" class="ligne" data-ouvrir="' + c.id + '" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;color:inherit;font:inherit">' +
-            '<span class="txt"><b>' + esc(g.prenom + ' ' + g.nom) + '</b><small>' + nbArticles(c) + ' article(s) · ' + esc(nomPoint(c.point_id)) + ' · ' + esc(c.reference || '') + '</small></span>' +
+            '<span class="txt"><b>' + esc(nomG(g)) + '</b><small>' + nbArticles(c) + ' article(s) · ' + esc(nomPoint(c.point_id)) + ' · ' + esc(c.reference || '') + '</small></span>' +
             (c.commentaire ? '<span class="pastille">un mot</span>' : '') +
             '<span class="mt">' + prix(c.montant) + '</span></button>' +
             '<div class="detail" id="detail-' + c.id + '" hidden>';
@@ -276,7 +278,7 @@
         if (!vis.length) h += '<div class="ligne"><span class="txt">' + (aPayer.length ? 'Aucun résultat.' : 'Tout est payé !') + '</span></div>';
         vis.forEach(function (c) {
           var g = c.gourmet || {};
-          h += '<div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(g.prenom + ' ' + g.nom) + '</b><small>' + esc(c.reference || '') + ' · ' + esc(nomPoint(c.point_id)) + '</small></span>' +
+          h += '<div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(nomG(g)) + '</b><small>' + esc(c.reference || '') + ' · ' + esc(nomPoint(c.point_id)) + '</small></span>' +
             '<span class="mt">' + prix(c.montant) + '</span>' +
             '<span style="display:flex;gap:6px;width:100%;justify-content:flex-end">' +
             '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement</button>' +
@@ -289,7 +291,7 @@
           h += '<h2 style="margin:20px 16px 8px;font-size:17px">Déjà payés</h2><div class="liste">';
           payes.forEach(function (c) {
             var g = c.gourmet || {};
-            h += '<div class="ligne"><span class="txt"><b>' + esc(g.prenom + ' ' + g.nom) + '</b><small>' + esc(MOYENS[c.moyen] || '') + (c.paye_le ? ' · ' + esc(dateCourte(c.paye_le)) : '') + '</small></span>' +
+            h += '<div class="ligne"><span class="txt"><b>' + esc(nomG(g)) + '</b><small>' + esc(MOYENS[c.moyen] || '') + (c.paye_le ? ' · ' + esc(dateCourte(c.paye_le)) : '') + '</small></span>' +
               '<span class="mt">' + prix(c.montant) + '</span><button class="btn rouge" type="button" data-annuler="' + c.id + '">Annuler</button></div>';
           });
           h += '</div>';
@@ -303,7 +305,7 @@
         var corps = paye ? { paye: true, moyen: moyen, paye_le: new Date().toISOString() } : { paye: false, moyen: null, paye_le: null };
         return api('commandes?id=eq.' + id, { method: 'PATCH', body: corps }).then(function () {
           Object.assign(c, corps); dessiner();
-          if (paye) toast(esc(c.gourmet.prenom + ' ' + c.gourmet.nom) + ' : payé (' + esc(MOYENS[moyen]) + ')', { libelle: 'Annuler', faire: function () { marquer(id, false); } });
+          if (paye) toast(esc(nomG(c.gourmet)) + ' : payé (' + esc(MOYENS[moyen]) + ')', { libelle: 'Annuler', faire: function () { marquer(id, false); } });
         }).catch(function (e) { toast('Erreur : ' + esc(e.message)); });
       }
       dessiner();
@@ -315,9 +317,9 @@
         var rl = e.target.closest('[data-relancer]');
         if (rl) {
           var cr = cmds.filter(function (x) { return x.id === Number(rl.dataset.relancer); })[0];
-          if (!window.confirm('Envoyer un mail de rappel de paiement à ' + cr.gourmet.prenom + ' ' + cr.gourmet.nom + ' ?')) return;
+          if (!window.confirm('Envoyer un mail de rappel de paiement à ' + nomG(cr.gourmet) + ' ?')) return;
           rl.disabled = true;
-          api('rpc/relancer_paiement', { method: 'POST', body: { p_commande_id: cr.id } }).then(function () { toast('Rappel envoyé à ' + esc(cr.gourmet.prenom + ' ' + cr.gourmet.nom)); })
+          api('rpc/relancer_paiement', { method: 'POST', body: { p_commande_id: cr.id } }).then(function () { toast('Rappel envoyé à ' + esc(nomG(cr.gourmet))); })
             .catch(function (err) { rl.disabled = false; toast('Erreur : ' + esc(err.message)); });
         }
       };
@@ -328,10 +330,11 @@
   function vueGourmets() {
     return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
       var dernierLien = null; // { id, url }
+      var edition = null;     // id du gourmet en cours de modification
       function dessiner() {
         var h = '<form class="carte" id="ajout"><h1 style="font-size:20px">Ajouter un gourmet</h1>' +
           '<div class="grille2"><div class="champ"><label for="g-prenom">Prénom</label><input id="g-prenom" required></div>' +
-          '<div class="champ"><label for="g-nom">Nom</label><input id="g-nom" required></div></div>' +
+          '<div class="champ"><label for="g-nom">Nom</label><input id="g-nom" required style="text-transform:uppercase"></div></div>' +
           '<div class="champ"><label for="g-email">E-mail</label><input id="g-email" type="email" required></div>' +
           '<div class="grille2"><div class="champ"><label for="g-tel">Téléphone (facultatif)</label><input id="g-tel" type="tel"></div>' +
           '<div class="champ"><label for="g-ville">Ville de livraison</label><input id="g-ville" list="villes"></div></div>' +
@@ -339,13 +342,24 @@
           '<button class="bouton" type="submit">Ajouter et créer son lien</button></form>';
         h += '<h2 style="margin:8px 16px;font-size:17px">' + gs.filter(function (g) { return g.actif; }).length + ' gourmets actifs</h2><div class="liste">';
         gs.forEach(function (g) {
-          h += '<div><div class="ligne" style="flex-wrap:wrap' + (g.actif ? '' : ';opacity:.55') + '"><span class="txt"><b>' + esc(g.prenom + ' ' + g.nom) + (g.actif ? '' : ' (inactif)') + '</b>' +
+          h += '<div><div class="ligne" style="flex-wrap:wrap' + (g.actif ? '' : ';opacity:.55') + '"><span class="txt"><b>' + esc(nomG(g)) + (g.actif ? '' : ' (inactif)') + '</b>' +
             '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
             '<span style="display:flex;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end">' +
             (g.actif ? '<button class="btn" type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
               (g.jeton ? '<button class="btn clair" type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
               '<button class="btn clair" type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
+            '<button class="btn clair" type="button" data-modifier="' + g.id + '">Modifier</button>' +
             '<button class="btn clair" type="button" data-actif="' + g.id + '">' + (g.actif ? 'Désactiver' : 'Réactiver') + '</button></span></div>';
+          if (edition === g.id) {
+            h += '<form class="detail" id="form-modif">' +
+              '<div class="grille2"><div class="champ"><label for="m-prenom">Prénom</label><input id="m-prenom" required value="' + esc(g.prenom) + '"></div>' +
+              '<div class="champ"><label for="m-nom">Nom</label><input id="m-nom" required style="text-transform:uppercase" value="' + esc(g.nom) + '"></div></div>' +
+              '<div class="champ"><label for="m-email">E-mail</label><input id="m-email" type="email" required value="' + esc(g.email) + '"></div>' +
+              '<div class="grille2"><div class="champ"><label for="m-tel">Téléphone (facultatif)</label><input id="m-tel" type="tel" value="' + esc(g.telephone || '') + '"></div>' +
+              '<div class="champ"><label for="m-ville">Ville de livraison</label><input id="m-ville" list="villes" value="' + esc(g.ville_habituelle || '') + '"></div></div>' +
+              '<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" type="submit">Enregistrer</button>' +
+              '<button class="btn clair" type="button" id="annuler-modif">Annuler</button></span></form>';
+          }
           if (dernierLien && dernierLien.id === g.id) {
             var sujet = 'Votre lien pour commander les fromages';
             var corps = 'Bonjour ' + g.prenom + ',\n\nVoici votre lien personnel pour passer vos commandes de fromages :\n' + dernierLien.url +
@@ -362,7 +376,7 @@
           e.preventDefault();
           var b = e.target.querySelector('button'); b.disabled = true;
           var corpsG = {
-            prenom: document.getElementById('g-prenom').value.trim(), nom: document.getElementById('g-nom').value.trim(),
+            prenom: document.getElementById('g-prenom').value.trim(), nom: document.getElementById('g-nom').value.trim().toUpperCase(),
             email: document.getElementById('g-email').value.trim().toLowerCase(),
             telephone: document.getElementById('g-tel').value.trim() || null, ville_habituelle: document.getElementById('g-ville').value.trim() || null
           };
@@ -373,6 +387,26 @@
             toast(/duplicate|unique/i.test(err.message) ? 'Cette adresse e-mail est déjà enregistrée.' : 'Erreur : ' + esc(err.message));
           });
         };
+        var fm = document.getElementById('form-modif');
+        if (fm) {
+          fm.querySelector('#m-prenom').focus();
+          fm.onsubmit = function (e) {
+            e.preventDefault();
+            var gm = gs.filter(function (x) { return x.id === edition; })[0];
+            var bm = fm.querySelector('button[type="submit"]'); bm.disabled = true;
+            var corpsM = {
+              prenom: document.getElementById('m-prenom').value.trim(), nom: document.getElementById('m-nom').value.trim().toUpperCase(),
+              email: document.getElementById('m-email').value.trim().toLowerCase(),
+              telephone: document.getElementById('m-tel').value.trim() || null, ville_habituelle: document.getElementById('m-ville').value.trim() || null
+            };
+            api('gourmets?id=eq.' + gm.id, { method: 'PATCH', body: corpsM }).then(function () {
+              Object.assign(gm, corpsM); edition = null; dessiner(); toast('Fiche de ' + esc(nomG(gm)) + ' enregistrée');
+            }).catch(function (err) {
+              bm.disabled = false;
+              toast(/duplicate|unique/i.test(err.message) ? 'Cette adresse e-mail est déjà utilisée par un autre gourmet.' : 'Erreur : ' + esc(err.message));
+            });
+          };
+        }
       }
       function creerLien(g) {
         return api('rpc/creer_lien_gourmet', { method: 'POST', body: { p_gourmet_id: g.id } }).then(function (jeton) {
@@ -389,14 +423,14 @@
         var l = e.target.closest('[data-lien]');
         if (l) {
           var g = gs.filter(function (x) { return x.id === l.dataset.lien; })[0];
-          if (g.jeton_cree_le && !window.confirm('Créer un nouveau lien pour ' + g.prenom + ' ' + g.nom + ' ? L’ancien lien ne fonctionnera plus.')) return;
+          if (g.jeton_cree_le && !window.confirm('Créer un nouveau lien pour ' + nomG(g) + ' ? L’ancien lien ne fonctionnera plus.')) return;
           creerLien(g).catch(function (err) { toast('Erreur : ' + esc(err.message)); });
           return;
         }
         var en = e.target.closest('[data-envoyer]');
         if (en) {
           var ge = gs.filter(function (x) { return x.id === en.dataset.envoyer; })[0];
-          if (!window.confirm('Envoyer à ' + ge.prenom + ' ' + ge.nom + ' (' + ge.email + ') le mail avec son lien personnel ?')) return;
+          if (!window.confirm('Envoyer à ' + nomG(ge) + ' (' + ge.email + ') le mail avec son lien personnel ?')) return;
           en.disabled = true;
           api('rpc/envoyer_lien', { method: 'POST', body: { p_gourmet_id: ge.id } }).then(function () { ge.jeton = ge.jeton || 'x'; ge.jeton_cree_le = ge.jeton_cree_le || new Date().toISOString(); toast('Mail envoyé à ' + esc(ge.email)); return api('gourmets?select=jeton&id=eq.' + ge.id); })
             .then(function (l) { if (l && l[0]) ge.jeton = l[0].jeton; dessiner(); }).catch(function (err) { en.disabled = false; toast('Erreur : ' + esc(err.message)); });
@@ -408,6 +442,9 @@
           dernierLien = { id: gv.id, url: location.href.replace(/admin\/.*$/, '') + '?k=' + encodeURIComponent(gv.jeton) };
           dessiner(); return;
         }
+        var mo = e.target.closest('[data-modifier]');
+        if (mo) { edition = edition === mo.dataset.modifier ? null : mo.dataset.modifier; dernierLien = null; dessiner(); return; }
+        if (e.target.id === 'annuler-modif') { edition = null; dessiner(); return; }
         var a = e.target.closest('[data-actif]');
         if (a) {
           var g2 = gs.filter(function (x) { return x.id === a.dataset.actif; })[0];
@@ -483,7 +520,7 @@
   }
 
   // Outils partagés avec les autres fichiers de l'appli (ex. admin-produits.js)
-  window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app,
+  window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app, nomG: nomG,
     campagne: function () { return campagne; }, points: function () { return points; },
     recharger: function (msg) { aller(vueCourante); if (msg) toast(msg); return Promise.resolve(); } };
 
