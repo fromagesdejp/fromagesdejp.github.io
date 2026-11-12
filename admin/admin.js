@@ -188,8 +188,26 @@
         '<button class="bouton" type="button" data-aller="commandes">Voir les commandes</button>' +
         '<button class="bouton second" type="button" data-aller="ferme">Bon de commande pour la ferme</button>' +
         '<button class="bouton second" type="button" data-aller="paiements">Paiements</button>' +
-        '<button class="bouton second" type="button" data-aller="gourmets">Mes gourmets et leurs liens</button></div>';
+        '<button class="bouton second" type="button" data-aller="gourmets">Mes gourmets et leurs liens</button></div>' +
+        '<section class="carte"><h2 style="margin:0 0 10px;font-size:18px">Mails</h2><div class="actions" style="margin:0">' +
+        '<button class="bouton" type="button" data-arrivee>Les fromages sont arrivés : prévenir tout le monde</button>' +
+        '<button class="bouton second" type="button" data-ouverture>Envoyer le mail d\u2019ouverture aux gourmets qui ne l\u2019ont pas reçu</button></div>' +
+        '<p style="font-size:13px;color:var(--texte-doux);margin:10px 0 0">Automatiques : confirmation à chaque commande, mail à l\u2019ouverture, rappels 3 jours avant et la veille.</p></section>';
       app.innerHTML = h;
+      app.onclick = function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.arrivee !== undefined) {
+          if (!window.confirm('Prévenir les ' + cmds.length + ' gourmets qui ont commandé que les fromages sont arrivés ?')) return;
+          b.disabled = true;
+          api('rpc/annoncer_arrivee', { method: 'POST', body: { p_campagne_id: campagne.id } }).then(function (n) { toast(n + ' mail(s) envoyé(s)'); })
+            .catch(function (err) { b.disabled = false; toast('Erreur : ' + esc(err.message)); });
+        }
+        if (b.dataset.ouverture !== undefined) {
+          b.disabled = true;
+          api('rpc/annoncer_ouverture', { method: 'POST', body: { p_campagne_id: campagne.id } }).then(function (n) { toast(n + ' mail(s) envoyé(s)'); })
+            .catch(function (err) { b.disabled = false; toast('Erreur : ' + esc(err.message)); });
+        }
+      };
     });
   }
   app.addEventListener('click', function (e) { var b = e.target.closest('[data-aller]'); if (b) aller(b.dataset.aller); });
@@ -263,7 +281,8 @@
             '<span style="display:flex;gap:6px;width:100%;justify-content:flex-end">' +
             '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement</button>' +
             '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="especes">Espèces</button>' +
-            '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="cheque">Chèque</button></span></div>';
+            '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="cheque">Chèque</button>' +
+            '<button class="btn clair" type="button" data-relancer="' + c.id + '">Relancer</button></span></div>';
         });
         h += '</div>';
         if (payes.length) {
@@ -292,14 +311,22 @@
         var p = e.target.closest('[data-payer]');
         if (p) { p.disabled = true; marquer(Number(p.dataset.payer), true, p.dataset.moyen); return; }
         var a = e.target.closest('[data-annuler]');
-        if (a) marquer(Number(a.dataset.annuler), false);
+        if (a) { marquer(Number(a.dataset.annuler), false); return; }
+        var rl = e.target.closest('[data-relancer]');
+        if (rl) {
+          var cr = cmds.filter(function (x) { return x.id === Number(rl.dataset.relancer); })[0];
+          if (!window.confirm('Envoyer un mail de rappel de paiement à ' + cr.gourmet.prenom + ' ' + cr.gourmet.nom + ' ?')) return;
+          rl.disabled = true;
+          api('rpc/relancer_paiement', { method: 'POST', body: { p_commande_id: cr.id } }).then(function () { toast('Rappel envoyé à ' + esc(cr.gourmet.prenom + ' ' + cr.gourmet.nom)); })
+            .catch(function (err) { rl.disabled = false; toast('Erreur : ' + esc(err.message)); });
+        }
       };
     });
   }
 
   // ---------- Gourmets ----------
   function vueGourmets() {
-    return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
+    return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
       var dernierLien = null; // { id, url }
       function dessiner() {
         var h = '<form class="carte" id="ajout"><h1 style="font-size:20px">Ajouter un gourmet</h1>' +
@@ -314,14 +341,16 @@
         gs.forEach(function (g) {
           h += '<div><div class="ligne" style="flex-wrap:wrap' + (g.actif ? '' : ';opacity:.55') + '"><span class="txt"><b>' + esc(g.prenom + ' ' + g.nom) + (g.actif ? '' : ' (inactif)') + '</b>' +
             '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
-            '<span style="display:flex;gap:6px">' +
-            (g.actif ? '<button class="btn" type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
+            '<span style="display:flex;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end">' +
+            (g.actif ? '<button class="btn" type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
+              (g.jeton ? '<button class="btn clair" type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
+              '<button class="btn clair" type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
             '<button class="btn clair" type="button" data-actif="' + g.id + '">' + (g.actif ? 'Désactiver' : 'Réactiver') + '</button></span></div>';
           if (dernierLien && dernierLien.id === g.id) {
             var sujet = 'Votre lien pour commander les fromages';
             var corps = 'Bonjour ' + g.prenom + ',\n\nVoici votre lien personnel pour passer vos commandes de fromages :\n' + dernierLien.url +
               '\n\nGardez-le précieusement (par exemple en favori) : il servira pour toutes les prochaines commandes. Ne le partagez pas, il est à votre nom.\n\nAmitié,\nJP';
-            h += '<div class="detail"><p style="margin:0 0 4px"><b>Lien de ' + esc(g.prenom) + '</b> (l’ancien lien ne fonctionne plus) :</p><div class="lien-box" id="lien-txt">' + esc(dernierLien.url) + '</div>' +
+            h += '<div class="detail"><p style="margin:0 0 4px"><b>Lien de ' + esc(g.prenom) + '</b> :</p><div class="lien-box" id="lien-txt">' + esc(dernierLien.url) + '</div>' +
               '<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" type="button" id="copier-lien">Copier le lien</button>' +
               '<a class="btn clair" style="display:inline-flex;align-items:center;text-decoration:none" href="mailto:' + encodeURIComponent(g.email) + '?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps) + '">Préparer le mail</a></span></div>';
           }
@@ -347,7 +376,7 @@
       }
       function creerLien(g) {
         return api('rpc/creer_lien_gourmet', { method: 'POST', body: { p_gourmet_id: g.id } }).then(function (jeton) {
-          g.jeton_cree_le = new Date().toISOString();
+          g.jeton_cree_le = new Date().toISOString(); g.jeton = jeton;
           var base = location.href.replace(/admin\/.*$/, '');
           dernierLien = { id: g.id, url: base + '?k=' + encodeURIComponent(jeton) };
           gs.sort(function (a, b) { return (b.actif - a.actif) || a.nom.localeCompare(b.nom); });
@@ -363,6 +392,21 @@
           if (g.jeton_cree_le && !window.confirm('Créer un nouveau lien pour ' + g.prenom + ' ' + g.nom + ' ? L’ancien lien ne fonctionnera plus.')) return;
           creerLien(g).catch(function (err) { toast('Erreur : ' + esc(err.message)); });
           return;
+        }
+        var en = e.target.closest('[data-envoyer]');
+        if (en) {
+          var ge = gs.filter(function (x) { return x.id === en.dataset.envoyer; })[0];
+          if (!window.confirm('Envoyer à ' + ge.prenom + ' ' + ge.nom + ' (' + ge.email + ') le mail avec son lien personnel ?')) return;
+          en.disabled = true;
+          api('rpc/envoyer_lien', { method: 'POST', body: { p_gourmet_id: ge.id } }).then(function () { ge.jeton = ge.jeton || 'x'; ge.jeton_cree_le = ge.jeton_cree_le || new Date().toISOString(); toast('Mail envoyé à ' + esc(ge.email)); return api('gourmets?select=jeton&id=eq.' + ge.id); })
+            .then(function (l) { if (l && l[0]) ge.jeton = l[0].jeton; dessiner(); }).catch(function (err) { en.disabled = false; toast('Erreur : ' + esc(err.message)); });
+          return;
+        }
+        var vo = e.target.closest('[data-voir]');
+        if (vo) {
+          var gv = gs.filter(function (x) { return x.id === vo.dataset.voir; })[0];
+          dernierLien = { id: gv.id, url: location.href.replace(/admin\/.*$/, '') + '?k=' + encodeURIComponent(gv.jeton) };
+          dessiner(); return;
         }
         var a = e.target.closest('[data-actif]');
         if (a) {
