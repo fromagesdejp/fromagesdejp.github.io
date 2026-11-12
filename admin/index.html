@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Espace de Jean-Paul — Les Fromages Jean-Paul</title>
+<link rel="icon" href="../images/icone-192.png">
+<link rel="apple-touch-icon" href="../images/icone-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="../assets/app.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<header class="entete">
+  <img src="../images/logo.png" alt="" width="40" height="40">
+  <div style="flex-grow:1">
+    <div class="entete-titre">Espace de Jean-Paul</div>
+    <div class="entete-sous" id="qui"></div>
+  </div>
+  <button type="button" class="deco" id="deconnexion" hidden>Se déconnecter</button>
+</header>
+<nav class="onglets" id="onglets" hidden aria-label="Rubriques">
+  <button type="button" data-vue="accueil">Accueil</button>
+  <button type="button" data-vue="commandes">Commandes</button>
+  <button type="button" data-vue="paiements">Paiements</button>
+  <button type="button" data-vue="gourmets">Gourmets</button>
+  <button type="button" data-vue="ferme">Bon ferme</button>
+  <button type="button" data-vue="reglages">Réglages</button>
+</nav>
+<main id="app" aria-live="polite"><p class="chargement">Chargement…</p></main>
+<script src="../assets/config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
