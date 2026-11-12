@@ -131,7 +131,7 @@
     });
     app.innerHTML = '<p class="chargement">Chargement…</p>';
     app.onclick = null;
-    var f = { accueil: vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || vueAccueil;
+    var f = { accueil: vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
     chargerCampagne().then(f).catch(erreur);
     window.scrollTo(0, 0);
   }
@@ -435,6 +435,10 @@
       };
     });
   }
+
+  // Outils partagés avec les autres fichiers de l'appli (ex. admin-produits.js)
+  window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app,
+    campagne: function () { return campagne; }, points: function () { return points; } };
 
   // ---------- Démarrage ----------
   function demarrer() {
