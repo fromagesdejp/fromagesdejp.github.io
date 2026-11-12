@@ -42,3 +42,4 @@ table.bon td.n { text-align: right; font-weight: 800; white-space: nowrap; }
   body { background: #fff; }
   .carte { box-shadow: none; margin: 0; padding: 0; }
 }
+[hidden] { display: none !important; }
