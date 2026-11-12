@@ -145,14 +145,16 @@
   }
 
   function chargerCampagne() {
-    return api('campagnes?select=*&statut=neq.terminee&order=cloture.desc&limit=1').then(function (l) {
+    return api('campagnes?select=*&statut=neq.terminee&order=cloture.desc').then(function (l) {
+      var rang = { ouverte: 0, cloturee: 1, preparation: 2 };
+      l.sort(function (a, b) { return rang[a.statut] - rang[b.statut]; });
       campagne = l[0] || null;
       if (!campagne) { points = []; return; }
       return api('points_livraison?select=*&campagne_id=eq.' + campagne.id + '&order=ordre,id').then(function (p) { points = p; });
     });
   }
   function sansCampagne() {
-    app.innerHTML = '<div class="carte"><h1>Aucune campagne en cours</h1><p>La création des campagnes depuis l’appli arrive bientôt.</p></div>';
+    app.innerHTML = '<div class="carte"><h1>Aucune campagne en cours</h1><p>Créez-en une dans la rubrique « Campagnes ».</p></div>';
   }
 
   function chargerCommandes() {
@@ -438,7 +440,8 @@
 
   // Outils partagés avec les autres fichiers de l'appli (ex. admin-produits.js)
   window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app,
-    campagne: function () { return campagne; }, points: function () { return points; } };
+    campagne: function () { return campagne; }, points: function () { return points; },
+    recharger: function (msg) { aller(vueCourante); if (msg) toast(msg); return Promise.resolve(); } };
 
   // ---------- Démarrage ----------
   function demarrer() {
