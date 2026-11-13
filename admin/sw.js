@@ -1,5 +1,5 @@
 // Les Fromages Jean-Paul — appli de JP : fonctionnement hors connexion et notifications
-var VERSION = 'fjp-admin-1';
+var VERSION = 'fjp-admin-2';
 var FICHIERS = [
   './', './admin.css', './admin.js', './admin-produits.js', './admin-campagnes.js', './admin-appli.js',
   './manifest.webmanifest', '../assets/app.css', '../assets/config.js',
@@ -23,7 +23,9 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var r = e.request;
   if (r.method !== 'GET' || new URL(r.url).origin !== self.location.origin) return;
-  e.respondWith(fetch(r).then(function (rep) {
+  // « no-cache » : le téléphone vérifie à chaque fois s'il y a une nouvelle version (sans tout retélécharger)
+  var frais = r.mode === 'navigate' ? new Request(r.url, { cache: 'no-cache', credentials: 'same-origin' }) : new Request(r, { cache: 'no-cache' });
+  e.respondWith(fetch(frais).then(function (rep) {
     if (rep.ok) { var copie = rep.clone(); caches.open(VERSION).then(function (c) { c.put(r, copie); }); }
     return rep;
   }).catch(function () {
