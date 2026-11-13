@@ -1,0 +1,43 @@
+/* Style commun du bon de commande, dans l'esprit de l'appli de JP (13/11) */
+
+/* Cartes et blocs */
+.carte, .liste, .virement, .bandeau { border-radius: 14px; }
+.liste { overflow: hidden; }
+.date { border-radius: 14px; }
+.categorie h2 { color: var(--canard-fonce); }
+
+/* Choix du point de livraison */
+.point { border: 1.5px solid var(--bord); border-radius: 14px; transition: border-color .15s, background .15s, box-shadow .15s; }
+.point:hover { border-color: var(--canard); }
+.point[aria-pressed="true"] { border-color: var(--canard); box-shadow: 0 2px 8px rgba(11,110,120,.15); }
+
+/* Grands boutons */
+.bouton, .petit-bouton, .compteur button { transition: transform .15s, box-shadow .15s, background .15s, border-color .15s, color .15s; }
+.bouton { border-radius: 14px; font-size: 17px; box-shadow: 0 4px 12px rgba(11,110,120,.22); }
+.bouton:hover:not(:disabled) { background: var(--canard-fonce); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(11,110,120,.28); }
+.bouton:disabled { box-shadow: none; }
+.bouton.second { color: var(--canard-fonce); border: 1.5px solid var(--bord); box-shadow: 0 1px 3px rgba(18,49,63,.08); }
+.bouton.second:hover:not(:disabled) { background: #fff; border-color: var(--canard); box-shadow: 0 6px 16px rgba(18,49,63,.12); }
+.bouton.discret, .bouton.discret:hover:not(:disabled) { background: transparent; box-shadow: none; transform: none; }
+.petit-bouton { border: 1.5px solid var(--bord); color: var(--canard-fonce); }
+.petit-bouton:hover { background: var(--canard-clair); border-color: var(--canard); }
+
+/* Boutons − et + */
+.compteur button { border-radius: 12px; }
+.moins { border: 1.5px solid var(--bord); color: var(--canard-fonce); }
+.moins:hover:not(:disabled) { border-color: var(--canard); background: var(--canard-clair); }
+.plus { box-shadow: 0 2px 6px rgba(11,110,120,.25); }
+.plus:hover:not(:disabled) { background: var(--canard-fonce); }
+.plus:disabled { box-shadow: none; }
+.compteur button:active:not(:disabled) { transform: scale(.94); }
+
+/* Champ « un mot pour JP » */
+.commentaire textarea { border: 1.5px solid var(--bord); transition: border-color .15s, box-shadow .15s; }
+.commentaire textarea:focus { outline: none; border-color: var(--canard); box-shadow: 0 0 0 3px rgba(11,110,120,.15); }
+
+/* Barre du total en bas */
+.pied { border-top: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -6px 18px rgba(18,49,63,.1); }
+
+/* Clavier : même anneau jaune partout */
+button:focus-visible, a:focus-visible { outline: 3px solid var(--fromage); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .bouton:hover:not(:disabled), .compteur button:active:not(:disabled) { transform: none; } }
