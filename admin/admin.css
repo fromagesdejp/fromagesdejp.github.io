@@ -69,4 +69,13 @@ main { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 .mc-fleche { font-size: 34px; color: var(--canard); line-height: 1; }
 .barre-bon { display: flex; align-items: center; gap: 12px; margin: 12px 16px 8px; font-weight: 800; }
 .bon-dans-appli { display: block; width: 100%; height: calc(100dvh - 150px); min-height: 420px; border: 0; background: var(--creme, #FBF6EA); }
+/* Liste des gourmets : une action principale, les autres derrière « ⋯ » */
+.g-ligne { flex-wrap: nowrap; }
+.liste > div + div > .g-ligne { border-top: 1px solid #EEF1F2; }
+.g-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn.petit { min-height: 38px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+.btn.g-plus { width: 42px; padding: 0; font-size: 20px; line-height: 1; }
+.g-menu { display: flex; flex-wrap: wrap; gap: 2px 16px; padding: 0 14px 10px; }
+.g-menu button { background: none; border: none; padding: 0; min-height: 36px; color: var(--canard); font: inherit; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.g-menu button.rouge { color: var(--rouge); }
 [hidden] { display: none !important; }

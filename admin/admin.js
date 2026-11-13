@@ -333,6 +333,7 @@
   function vueGourmets() {
     return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
       var dernierLien = null; // { id, url }
+      var menuOuvert = null;  // gourmet dont les autres actions sont affichées
       var edition = null;     // id du gourmet en cours de modification
       function dessiner() {
         var h = '<form class="carte" id="ajout"><h1 style="font-size:20px">Ajouter un gourmet</h1>' +
@@ -345,15 +346,20 @@
           '<button class="bouton" type="submit">Ajouter et créer son lien</button></form>';
         h += '<h2 style="margin:8px 16px;font-size:17px">' + gs.filter(function (g) { return g.actif; }).length + ' gourmets actifs</h2><div class="liste">';
         gs.forEach(function (g) {
-          h += '<div><div class="ligne" style="flex-wrap:wrap' + (g.actif ? '' : ';opacity:.55') + '"><span class="txt"><b>' + esc(nomG(g)) + (g.actif ? '' : ' (inactif)') + '</b>' +
+          var ouvert = menuOuvert === g.id;
+          h += '<div><div class="ligne g-ligne"' + (g.actif ? '' : ' style="opacity:.55"') + '><span class="txt"><b>' + esc(nomG(g)) + (g.actif ? '' : ' (inactif)') + '</b>' +
             '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
-            '<span style="display:flex;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end">' +
-            (g.actif ? '<button class="btn" type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
-              (g.jeton ? '<button class="btn clair" type="button" data-bon="' + g.id + '">Commander pour ' + esc(g.prenom) + '</button>' +
-                '<button class="btn clair" type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
-              '<button class="btn clair" type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
-            '<button class="btn clair" type="button" data-modifier="' + g.id + '">Modifier</button>' +
-            '<button class="btn clair" type="button" data-actif="' + g.id + '">' + (g.actif ? 'Désactiver' : 'Réactiver') + '</button></span></div>';
+            '<span class="g-actions">' +
+            (g.actif && g.jeton ? '<button class="btn petit" type="button" data-bon="' + g.id + '">Commander</button>' : '') +
+            '<button class="btn clair petit g-plus" type="button" data-menu="' + g.id + '" aria-expanded="' + ouvert + '" aria-label="Autres actions pour ' + esc(nomG(g)) + '">' + (ouvert ? '×' : '⋯') + '</button></span></div>';
+          if (ouvert) {
+            h += '<div class="g-menu">' +
+              (g.actif ? '<button type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
+                (g.jeton ? '<button type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
+                '<button type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
+              '<button type="button" data-modifier="' + g.id + '">Modifier</button>' +
+              '<button type="button" class="' + (g.actif ? 'rouge' : '') + '" data-actif="' + g.id + '">' + (g.actif ? 'Désactiver' : 'Réactiver') + '</button></div>';
+          }
           if (edition === g.id) {
             h += '<form class="detail" id="form-modif">' +
               '<div class="grille2"><div class="champ"><label for="m-prenom">Prénom</label><input id="m-prenom" required value="' + esc(g.prenom) + '"></div>' +
@@ -451,6 +457,8 @@
           var gb = gs.filter(function (x) { return x.id === bo.dataset.bon; })[0];
           window.FJP_OUVRIR_BON(gb.jeton, 'Commande de ' + nomG(gb)); return;
         }
+        var me = e.target.closest('[data-menu]');
+        if (me) { menuOuvert = menuOuvert === me.dataset.menu ? null : me.dataset.menu; dessiner(); return; }
         var mo = e.target.closest('[data-modifier]');
         if (mo) { edition = edition === mo.dataset.modifier ? null : mo.dataset.modifier; dernierLien = null; dessiner(); return; }
         if (e.target.id === 'annuler-modif') { edition = null; dessiner(); return; }
