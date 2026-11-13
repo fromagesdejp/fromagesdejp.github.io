@@ -283,9 +283,10 @@
         if (!vis.length) h += '<div class="ligne"><span class="txt">' + (aPayer.length ? 'Aucun résultat.' : 'Tout est payé !') + '</span></div>';
         vis.forEach(function (c) {
           var g = c.gourmet || {};
+          // Boutons en grille : 2 par ligne sur téléphone, 4 côte à côte sur grand écran (rien ne dépasse)
           h += '<div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(nomG(g)) + '</b><small>' + esc(c.reference || '') + ' · ' + esc(nomPoint(c.point_id)) + '</small></span>' +
             '<span class="mt">' + prix(c.montant) + '</span>' +
-            '<span style="display:flex;gap:6px;width:100%;justify-content:flex-end">' +
+            '<span style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;width:100%;min-width:0;margin-top:4px">' +
             '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement</button>' +
             '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="especes">Espèces</button>' +
             '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="cheque">Chèque</button>' +
