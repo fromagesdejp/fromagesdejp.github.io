@@ -147,7 +147,7 @@
             '<li>Ouvrez cette page dans <b>Safari</b>.</li>' +
             '<li>Touchez le bouton <b>Partager</b> (le carré avec une flèche vers le haut, en bas de l’écran).</li>' +
             '<li>Choisissez <b>« Sur l’écran d’accueil »</b>, puis <b>Ajouter</b>.</li>' +
-            '<li>Ouvrez l’appli <b>Fromages JP</b> depuis son icône, connectez-vous, et revenez ici.</li></ol>';
+            '<li>Ouvrez l’appli <b>JPFromages</b> depuis son icône, connectez-vous, et revenez ici.</li></ol>';
         } else if (ANDROID) {
           h += '<p><b>Pour installer l’appli :</b> dans le menu de Chrome (les trois points ⋮ en haut à droite), choisissez <b>« Installer l’application »</b> ou <b>« Ajouter à l’écran d’accueil »</b>.</p>';
         } else {
@@ -161,7 +161,7 @@
           else h += '<p>Ce navigateur ne permet pas les notifications. Utilisez Chrome.</p>';
         } else if (Notification.permission === 'denied') {
           h += '<p class="erreur-txt">Les notifications sont bloquées pour l’appli.</p><p>' +
-            (IOS ? 'Pour les autoriser : Réglages de l’iPhone › Notifications › Fromages JP › Autoriser les notifications.'
+            (IOS ? 'Pour les autoriser : Réglages de l’iPhone › Notifications › JPFromages › Autoriser les notifications.'
                  : 'Pour les autoriser : touchez le cadenas (ou ⋮ › Paramètres) › Notifications › Autoriser.') + ' Puis revenez ici.</p>';
         } else if (sub) {
           h += '<p class="ok-ligne">✓ Les notifications sont activées sur ce téléphone.</p>' +

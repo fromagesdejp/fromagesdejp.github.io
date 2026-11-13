@@ -129,7 +129,7 @@
   var points = [];
 
   function aller(vue) {
-    vueCourante = vue; stocker('fjp_vue', vue);
+    vueCourante = vue; if (vue !== 'bon' && vue !== 'macommande') stocker('fjp_vue', vue);
     onglets.querySelectorAll('button').forEach(function (b) {
       if (b.dataset.vue === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
@@ -179,7 +179,7 @@
       var aPayer = cmds.filter(function (c) { return !c.paye; });
       var attendu = aPayer.reduce(function (a, c) { return a + Number(c.montant); }, 0);
       var sans = Math.max(0, gourmets.length - cmds.length);
-      var h = '<section class="carte"><div style="display:flex;gap:8px;align-items:center"><h1 style="flex-grow:1">' + esc(campagne.nom) + '</h1>' +
+      var h = '<div id="ma-commande"></div><section class="carte"><div style="display:flex;gap:8px;align-items:center"><h1 style="flex-grow:1">' + esc(campagne.nom) + '</h1>' +
         '<span class="pastille discrete">' + esc(STATUTS[campagne.statut]) + '</span></div>' +
         '<p style="color:var(--texte-doux);font-size:14px">Clôture ' + esc(dateHeure(campagne.cloture)) + (campagne.livraison ? ' · livraison ' + esc(dateCourte(campagne.livraison)) : '') + '</p>' +
         '<div class="grille2">' +
@@ -198,6 +198,7 @@
         '<button class="bouton second" type="button" data-ouverture>Envoyer le mail d’ouverture aux gourmets qui ne l’ont pas reçu</button></div>' +
         '<p style="font-size:13px;color:var(--texte-doux);margin:10px 0 0">Automatiques : confirmation à chaque commande, mail à l’ouverture, rappels 3 jours avant et la veille.</p></section>';
       app.innerHTML = h;
+      if (window.FJP_CARTE_MA_COMMANDE) window.FJP_CARTE_MA_COMMANDE();
       app.onclick = function (e) {
         var b = e.target.closest('button'); if (!b) return;
         if (b.dataset.arrivee !== undefined) {
@@ -348,7 +349,8 @@
             '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
             '<span style="display:flex;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end">' +
             (g.actif ? '<button class="btn" type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
-              (g.jeton ? '<button class="btn clair" type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
+              (g.jeton ? '<button class="btn clair" type="button" data-bon="' + g.id + '">Commander pour ' + esc(g.prenom) + '</button>' +
+                '<button class="btn clair" type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
               '<button class="btn clair" type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
             '<button class="btn clair" type="button" data-modifier="' + g.id + '">Modifier</button>' +
             '<button class="btn clair" type="button" data-actif="' + g.id + '">' + (g.actif ? 'Désactiver' : 'Réactiver') + '</button></span></div>';
@@ -443,6 +445,11 @@
           var gv = gs.filter(function (x) { return x.id === vo.dataset.voir; })[0];
           dernierLien = { id: gv.id, url: location.href.replace(/admin\/.*$/, '') + '?k=' + encodeURIComponent(gv.jeton) };
           dessiner(); return;
+        }
+        var bo = e.target.closest('[data-bon]');
+        if (bo && window.FJP_OUVRIR_BON) {
+          var gb = gs.filter(function (x) { return x.id === bo.dataset.bon; })[0];
+          window.FJP_OUVRIR_BON(gb.jeton, 'Commande de ' + nomG(gb)); return;
         }
         var mo = e.target.closest('[data-modifier]');
         if (mo) { edition = edition === mo.dataset.modifier ? null : mo.dataset.modifier; dernierLien = null; dessiner(); return; }

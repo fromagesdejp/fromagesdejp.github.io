@@ -1,7 +1,7 @@
 {
   "id": "/admin/",
   "name": "Les Fromages Jean-Paul — espace de Jean-Paul",
-  "short_name": "Fromages JP",
+  "short_name": "JPFromages",
   "description": "Commandes, paiements et notifications des Fromages Jean-Paul",
   "lang": "fr",
   "start_url": "/admin/",
