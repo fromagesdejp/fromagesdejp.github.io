@@ -55,4 +55,10 @@ main { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 .choix input { width: 24px; height: 24px; margin: 2px 0 0; accent-color: var(--canard); flex-shrink: 0; }
 .choix b { display: block; font-size: 16px; }
 .choix small { display: block; color: var(--texte-doux); font-size: 13px; }
+/* Champs de date : jamais plus larges que leur case ; l'un sous l'autre sur téléphone */
+.champ { min-width: 0; }
+.champ input, .champ select, .champ textarea { width: 100%; min-width: 0; max-width: 100%; }
+@media (max-width: 560px) {
+  .grille2:has(input[type="date"]), .grille2:has(input[type="datetime-local"]) { grid-template-columns: 1fr; gap: 0; }
+}
 [hidden] { display: none !important; }
