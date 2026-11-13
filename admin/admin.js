@@ -136,7 +136,8 @@
     });
     app.innerHTML = '<p class="chargement">Chargement…</p>';
     app.onclick = null;
-    var f = { accueil: vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
+    // L'accueil est dans admin-accueil.js (l'ancien reste en secours)
+    var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
     chargerCampagne().then(f).catch(erreur);
     window.scrollTo(0, 0);
   }
