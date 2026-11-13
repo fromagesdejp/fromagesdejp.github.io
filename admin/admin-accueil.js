@@ -14,7 +14,7 @@
     camion: '<path d="M1 4h14v12H1z"/><path d="M15 8h4l4 4v4h-8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
     bon: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 12h8M8 16h5"/>',
     lien: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-    fromage: '<path d="M2 18 22 18 22 12 2 18z"/><path d="M2 18 12 7l10 5"/><circle cx="10" cy="15.5" r="1"/><circle cx="16" cy="15" r="1"/>',
+    fromage: '<path d="M2.5 11 16 4.5l5.5 6.5"/><path d="M2.5 11h19v7.5a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M2.5 13.8a1.8 1.8 0 0 1 0 3.4"/><circle cx="9" cy="15.5" r="1.6"/><circle cx="16" cy="14.3" r="1"/><circle cx="17.6" cy="17.6" r=".5"/>',
     calendrier: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     mail: '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/>',
     ok: '<path d="M20 6 9 17l-5-5"/>',
