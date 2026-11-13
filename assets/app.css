@@ -12,6 +12,7 @@
   --rouge: #A3261B;
 }
 * { box-sizing: border-box; }
+.dans-appli .entete { display: none; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--creme); color: var(--texte);

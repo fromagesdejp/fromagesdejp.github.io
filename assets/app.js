@@ -69,7 +69,10 @@
   (function () {
     var p = new URLSearchParams(location.search);
     var k = p.get('k');
-    if (k) { jeton = k; stocker('fjp_lien', k); }
+    // ?appli=1 : bon ouvert depuis l'appli de JP (on ne le mémorise pas sur l'appareil)
+    var dansAppli = p.has('appli');
+    if (dansAppli) document.documentElement.classList.add('dans-appli');
+    if (k) { jeton = k; if (!dansAppli) stocker('fjp_lien', k); }
     else { jeton = lire('fjp_lien'); }
   })();
 
