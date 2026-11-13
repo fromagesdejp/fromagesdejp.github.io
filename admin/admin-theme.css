@@ -1,0 +1,61 @@
+/* Style commun de l'appli de JP, dans l'esprit de la page d'accueil (13/11) */
+
+/* Onglets et en-tête */
+.onglets { gap: 4px; padding: 8px 12px; box-shadow: 0 1px 3px rgba(18,49,63,.06); }
+.onglets button { min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; color: var(--canard-fonce); transition: background .15s, color .15s; }
+.onglets button:hover { background: var(--canard-clair); }
+.onglets button[aria-current="page"] { background: var(--canard); color: #fff; box-shadow: 0 2px 6px rgba(11,110,120,.25); }
+.deco { border-radius: 10px; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.1); transition: background .15s; }
+.deco:hover { background: rgba(255,255,255,.2); }
+
+/* Grands boutons */
+.bouton, .btn, .petit-bouton, .filtres button, .g-menu button { transition: transform .15s, box-shadow .15s, background .15s, border-color .15s, color .15s; }
+.bouton { min-height: 52px; border-radius: 14px; font-size: 16px; box-shadow: 0 4px 12px rgba(11,110,120,.22); }
+.bouton:hover:not(:disabled) { background: var(--canard-fonce); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(11,110,120,.28); }
+.bouton.second { background: #fff; color: var(--canard-fonce); border: 1.5px solid var(--bord); font-size: 16px; box-shadow: 0 1px 3px rgba(18,49,63,.08); }
+.bouton.second:hover:not(:disabled) { background: #fff; border-color: var(--canard); box-shadow: 0 6px 16px rgba(18,49,63,.12); }
+.bouton:disabled { box-shadow: none; }
+
+/* Petits boutons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border-radius: 12px; font-size: 14px; box-shadow: 0 2px 6px rgba(11,110,120,.2); }
+.btn:hover:not(:disabled) { background: var(--canard-fonce); }
+.btn.clair { background: #fff; color: var(--canard-fonce); border: 1.5px solid var(--bord); box-shadow: none; }
+.btn.clair:hover:not(:disabled) { background: var(--canard-clair); border-color: var(--canard); }
+.btn.rouge { background: #fff; color: var(--rouge); border: 1.5px solid #F0C9C4; box-shadow: none; }
+.btn.rouge:hover:not(:disabled) { background: #FDE8E6; border-color: var(--rouge); }
+.btn.petit { min-height: 36px; border-radius: 10px; font-size: 13px; }
+.btn.g-plus { width: 38px; }
+.petit-bouton { border: 1.5px solid var(--bord); color: var(--canard-fonce); }
+.petit-bouton:hover { background: var(--canard-clair); border-color: var(--canard); }
+
+/* Filtres (pastilles) */
+.filtres { gap: 6px; }
+.filtres button { min-height: 36px; padding: 0 14px; border: 1.5px solid var(--bord); color: var(--texte-doux); font-size: 14px; }
+.filtres button:hover { border-color: var(--canard); color: var(--canard-fonce); }
+.filtres button[aria-pressed="true"] { background: var(--canard); border-color: var(--canard); color: #fff; box-shadow: 0 2px 6px rgba(11,110,120,.25); }
+
+/* Actions d'un gourmet : pastilles au lieu de liens soulignés */
+.g-menu { gap: 6px; padding: 2px 14px 12px; }
+.g-menu button { min-height: 32px; padding: 0 12px; border-radius: 999px; background: var(--canard-clair); color: var(--canard-fonce); font-size: 13px; font-weight: 800; text-decoration: none; }
+.g-menu button:hover { background: #CDEBED; }
+.g-menu button.rouge { background: #FDE8E6; color: var(--rouge); }
+
+/* Cartes, listes, titres de section */
+.carte { border-radius: 14px; }
+.liste { border-radius: 14px; overflow: hidden; }
+.ligne { min-height: 64px; }
+.liste button.ligne { transition: background .15s; }
+.liste button.ligne:hover { background: #F7FAFA !important; }
+#app > h2 { margin: 22px 20px 8px !important; font-size: 12px !important; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-doux); }
+.carte h2 { font-weight: 800; }
+.stat { border-radius: 14px; }
+.ajout-g summary { font-size: 16px; }
+
+/* Champs */
+.champ label { color: var(--texte-doux); }
+.champ input, .champ select, .champ textarea { border: 1.5px solid var(--bord); border-radius: 12px; transition: border-color .15s, box-shadow .15s; }
+.champ input:focus, .champ select:focus, .champ textarea:focus { outline: none; border-color: var(--canard); box-shadow: 0 0 0 3px rgba(11,110,120,.15); }
+
+/* Clavier : même anneau jaune partout */
+#app button:focus-visible, #app summary:focus-visible, .onglets button:focus-visible, .deco:focus-visible { outline: 3px solid var(--fromage); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .bouton:hover:not(:disabled) { transform: none; } }
