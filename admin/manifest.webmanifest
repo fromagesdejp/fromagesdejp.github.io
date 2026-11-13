@@ -1,0 +1,18 @@
+{
+  "id": "/admin/",
+  "name": "Les Fromages Jean-Paul — espace de Jean-Paul",
+  "short_name": "Fromages JP",
+  "description": "Commandes, paiements et notifications des Fromages Jean-Paul",
+  "lang": "fr",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF6EA",
+  "theme_color": "#0B6E78",
+  "icons": [
+    { "src": "../images/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../images/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../images/app-masquable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

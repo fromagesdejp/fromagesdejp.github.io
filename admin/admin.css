@@ -42,4 +42,17 @@ table.bon td.n { text-align: right; font-weight: 800; white-space: nowrap; }
   body { background: #fff; }
   .carte { box-shadow: none; margin: 0; padding: 0; }
 }
+/* Appli installée (iPhone : barre d'état au-dessus de l'en-tête) */
+.entete { padding-top: max(14px, env(safe-area-inset-top)); padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+main { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+/* Rubrique Notifications */
+.sous-titre { font-size: 17px; margin: 18px 0 8px; }
+.ok-ligne { color: var(--canard-fonce); font-weight: 800; }
+.avis-ok { color: var(--canard-fonce); font-size: 14px; }
+.etapes { margin: 0 0 8px; padding-left: 22px; }
+.etapes li { margin-bottom: 6px; }
+.choix { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid #EEF1F2; cursor: pointer; }
+.choix input { width: 24px; height: 24px; margin: 2px 0 0; accent-color: var(--canard); flex-shrink: 0; }
+.choix b { display: block; font-size: 16px; }
+.choix small { display: block; color: var(--texte-doux); font-size: 13px; }
 [hidden] { display: none !important; }

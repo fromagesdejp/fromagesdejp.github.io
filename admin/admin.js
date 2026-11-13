@@ -122,7 +122,9 @@
   }
 
   // ---------- Navigation ----------
-  var vueCourante = lire('fjp_vue') || 'accueil';
+  // Une notification peut ouvrir l'appli directement sur une rubrique (…/admin/#commandes)
+  var vueCourante = location.hash.slice(1) || lire('fjp_vue') || 'accueil';
+  if (location.hash) history.replaceState(null, '', location.pathname);
   var campagne = null;
   var points = [];
 
@@ -520,7 +522,7 @@
   }
 
   // Outils partagés avec les autres fichiers de l'appli (ex. admin-produits.js)
-  window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app, nomG: nomG,
+  window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app, nomG: nomG, aller: aller,
     campagne: function () { return campagne; }, points: function () { return points; },
     recharger: function (msg) { aller(vueCourante); if (msg) toast(msg); return Promise.resolve(); } };
 
@@ -532,6 +534,7 @@
       qui.textContent = session.email || '';
       onglets.hidden = false; btnDeco.hidden = false;
       aller(vueCourante);
+      window.dispatchEvent(new Event('fjp-connecte'));
     }).catch(function () { deconnexion(); });
   }
   demarrer();

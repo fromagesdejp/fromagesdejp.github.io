@@ -2,12 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>Espace de Jean-Paul — Les Fromages Jean-Paul</title>
 <link rel="icon" href="../images/icone-192.png">
-<link rel="apple-touch-icon" href="../images/icone-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/app-180.png">
+<meta name="theme-color" content="#0B6E78">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fromages JP">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="../assets/app.css">
@@ -30,6 +36,7 @@
   <button type="button" data-vue="produits">Produits</button>
   <button type="button" data-vue="campagnes">Campagnes</button>
   <button type="button" data-vue="ferme">Bon ferme</button>
+  <button type="button" data-vue="notifications">Notifications</button>
   <button type="button" data-vue="reglages">Réglages</button>
 </nav>
 <main id="app" aria-live="polite"><p class="chargement">Chargement…</p></main>
@@ -37,5 +44,6 @@
 <script src="admin.js"></script>
 <script src="admin-produits.js"></script>
 <script src="admin-campagnes.js"></script>
+<script src="admin-appli.js"></script>
 </body>
 </html>
