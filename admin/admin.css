@@ -70,6 +70,12 @@ main { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 .barre-bon { display: flex; align-items: center; gap: 12px; margin: 12px 16px 8px; font-weight: 800; }
 .bon-dans-appli { display: block; width: 100%; height: calc(100dvh - 150px); min-height: 420px; border: 0; background: var(--creme, #FBF6EA); }
 /* Liste des gourmets : une action principale, les autres derrière « ⋯ » */
+.g-cherche { margin: 0 16px 4px; }
+.ajout-g { padding: 0; }
+.ajout-g summary { list-style: none; cursor: pointer; padding: 14px 18px; font-size: 17px; font-weight: 800; color: var(--canard); }
+.ajout-g summary::-webkit-details-marker { display: none; }
+.ajout-g[open] summary { padding-bottom: 6px; }
+.ajout-g form { padding: 0 18px 18px; }
 .g-ligne { flex-wrap: nowrap; }
 .liste > div + div > .g-ligne { border-top: 1px solid #EEF1F2; }
 .g-actions { display: flex; gap: 6px; flex-shrink: 0; }

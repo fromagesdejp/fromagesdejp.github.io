@@ -17,6 +17,7 @@
     });
   }
   // « Prénom NOM »
+  function sansAccents(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   function nomG(g) { g = g || {}; return (g.prenom || '') + ' ' + String(g.nom || '').toUpperCase(); }
   function stocker(cle, val) { try { if (val == null) localStorage.removeItem(cle); else localStorage.setItem(cle, val); } catch (e) {} }
   function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
@@ -334,18 +335,29 @@
     return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
       var dernierLien = null; // { id, url }
       var menuOuvert = null;  // gourmet dont les autres actions sont affichées
+      var recherche = '';     // texte tapé dans « Chercher un gourmet »
+      var ajoutOuvert = false;
       var edition = null;     // id du gourmet en cours de modification
       function dessiner() {
-        var h = '<form class="carte" id="ajout"><h1 style="font-size:20px">Ajouter un gourmet</h1>' +
+        // Le formulaire d'ajout reste replié : la liste des gourmets (souvent longue) passe devant
+        var h = '<details class="carte ajout-g" id="ajout-zone"' + (ajoutOuvert ? ' open' : '') + '><summary>+ Ajouter un gourmet</summary><form id="ajout">' +
           '<div class="grille2"><div class="champ"><label for="g-prenom">Prénom</label><input id="g-prenom" required></div>' +
           '<div class="champ"><label for="g-nom">Nom</label><input id="g-nom" required style="text-transform:uppercase"></div></div>' +
           '<div class="champ"><label for="g-email">E-mail</label><input id="g-email" type="email" required></div>' +
           '<div class="grille2"><div class="champ"><label for="g-tel">Téléphone (facultatif)</label><input id="g-tel" type="tel"></div>' +
           '<div class="champ"><label for="g-ville">Ville de livraison</label><input id="g-ville" list="villes"></div></div>' +
           '<datalist id="villes">' + points.map(function (p) { return '<option value="' + esc(p.ville) + '">'; }).join('') + '</datalist>' +
-          '<button class="bouton" type="submit">Ajouter et créer son lien</button></form>';
-        h += '<h2 style="margin:8px 16px;font-size:17px">' + gs.filter(function (g) { return g.actif; }).length + ' gourmets actifs</h2><div class="liste">';
-        gs.forEach(function (g) {
+          '<button class="bouton" type="submit">Ajouter et créer son lien</button></form></details>';
+        var q = sansAccents(recherche.trim());
+        var vus = gs.filter(function (g) {
+          return !q || sansAccents([g.prenom, g.nom, g.email, g.ville_habituelle, g.telephone].join(' ')).indexOf(q) >= 0;
+        });
+        h += '<div class="champ g-cherche"><label for="g-cherche">Chercher un gourmet</label>' +
+          '<input id="g-cherche" type="search" value="' + esc(recherche) + '" placeholder="Nom, prénom, e-mail ou ville" autocomplete="off"></div>';
+        h += '<h2 style="margin:8px 16px;font-size:17px">' + (q ? vus.length + ' résultat' + (vus.length > 1 ? 's' : '') + ' sur ' + gs.length
+          : gs.filter(function (g) { return g.actif; }).length + ' gourmets actifs') + '</h2><div class="liste">';
+        if (q && !vus.length) h += '<div class="ligne"><span class="txt">Personne ne correspond à « ' + esc(recherche) + ' ».</span></div>';
+        vus.forEach(function (g) {
           var ouvert = menuOuvert === g.id;
           h += '<div><div class="ligne g-ligne"' + (g.actif ? '' : ' style="opacity:.55"') + '><span class="txt"><b>' + esc(nomG(g)) + (g.actif ? '' : ' (inactif)') + '</b>' +
             '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
@@ -382,6 +394,13 @@
         });
         h += '</div>';
         app.innerHTML = h;
+        document.getElementById('ajout-zone').ontoggle = function (e) { ajoutOuvert = e.target.open; if (ajoutOuvert) document.getElementById('g-prenom').focus(); };
+        var cherche = document.getElementById('g-cherche');
+        cherche.oninput = function () {
+          recherche = cherche.value; menuOuvert = null;
+          var pos = cherche.selectionStart; dessiner();
+          var n = document.getElementById('g-cherche'); n.focus(); n.setSelectionRange(pos, pos);
+        };
         document.getElementById('ajout').onsubmit = function (e) {
           e.preventDefault();
           var b = e.target.querySelector('button'); b.disabled = true;
@@ -391,7 +410,7 @@
             telephone: document.getElementById('g-tel').value.trim() || null, ville_habituelle: document.getElementById('g-ville').value.trim() || null
           };
           api('gourmets', { method: 'POST', body: corpsG }).then(function (r) {
-            var g = r[0]; gs.push(g); return creerLien(g);
+            var g = r[0]; gs.push(g); ajoutOuvert = false; return creerLien(g);
           }).catch(function (err) {
             b.disabled = false;
             toast(/duplicate|unique/i.test(err.message) ? 'Cette adresse e-mail est déjà enregistrée.' : 'Erreur : ' + esc(err.message));
