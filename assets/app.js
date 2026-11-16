@@ -258,8 +258,8 @@
             '<div class="jauge-barre" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pc + '"><div style="width:' + pc + '%"></div></div></div>';
         }
         h += '</div></div><div class="portions">';
-        // Les grands morceaux (1,5 kg, 2 kg) sont repliés pour garder le bon court
-        var grands = pr.portions.filter(function (po) { return po.mode === 'coupe' && po.poids_g > 1000; });
+        // Les grands morceaux (1 kg, 1,5 kg, 2 kg) sont repliés pour garder le bon court
+        var grands = pr.portions.filter(function (po) { return po.mode === 'coupe' && po.poids_g >= 1000; });
         var montrerGrands = grandsOuverts[pr.offre_id] || grands.some(function (po) { return qte[po.id] > 0; });
         pr.portions.forEach(function (po) {
           if (grands.indexOf(po) >= 0 && !montrerGrands) return;
@@ -279,7 +279,7 @@
         });
         if (grands.length && !montrerGrands) {
           h += '<button type="button" class="petit-bouton" data-grands="' + pr.offre_id + '" style="margin:6px 0 0">Plus gros morceau : ' +
-            esc(grands.map(function (po) { return po.libelle; }).join(' ou ')) + '</button>';
+            esc(grands.map(function (po) { return po.libelle; }).join(', ').replace(/, ([^,]*)$/, ' ou $1')) + '</button>';
         }
         h += '</div></article>';
       });
