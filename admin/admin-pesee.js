@@ -241,11 +241,14 @@
           t.l.poids_reels = corps.p_poids; t.l.prix_reels = corps.p_prix; t.l.prix_final = r.prix_final; t.l.preparee = r.preparee;
           t.c.montant = r.montant;
           var p = document.getElementById('prix-' + ligneId); if (p) p.textContent = r.prix_final != null ? prix(r.prix_final) : '—';
+          var bc = app.querySelector('[data-cocher="' + ligneId + '"]');
           if (!r.preparee) {
-            var bc = app.querySelector('[data-cocher="' + ligneId + '"]'); if (bc) bc.setAttribute('aria-pressed', 'false');
+            if (bc) bc.setAttribute('aria-pressed', 'false');
             var li = document.getElementById('ligne-' + ligneId); if (li) li.classList.remove('prete');
           }
           majCommande(t.c);
+          // Tous les morceaux sont chiffrés : l'article est coché tout seul
+          if (nouveau && !r.preparee && bc) cocher(ligneId, bc);
         }).catch(function (e) { FJP.toast('Erreur : ' + esc(e.message)); });
       }
 
