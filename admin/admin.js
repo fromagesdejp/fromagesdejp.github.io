@@ -526,7 +526,7 @@
         cats.forEach(function (c) {
           h += '<tr class="cat"><td colspan="3">' + esc(c.nom) + '</td></tr>';
           c.produits.forEach(function (p) {
-            h += '<tr><td>' + esc(p.nom) + '</td><td>' + esc(p.details.join(' · ')) + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
+            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
           });
         });
         h += '</tbody></table><p style="font-size:12px;color:var(--texte-doux);margin-top:10px">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
