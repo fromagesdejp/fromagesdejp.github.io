@@ -70,8 +70,15 @@
     '.ma-commande:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(245,166,35,.25); }',
     /* Bandeau de la campagne */
     '.acc-hero { position: relative; overflow: hidden; margin: 16px; border-radius: 18px; padding: 18px 18px 16px; color: #fff;',
-    '  background: radial-gradient(circle at 96% 4%, rgba(245,166,35,.28) 0 64px, transparent 65px), radial-gradient(circle at 74% 62%, rgba(245,166,35,.16) 0 30px, transparent 31px), linear-gradient(135deg, var(--canard) 0%, var(--canard-fonce) 100%);',
+    '  background: linear-gradient(135deg, var(--canard) 0%, var(--canard-fonce) 100%);',
     '  box-shadow: 0 10px 24px rgba(8,82,90,.25); }',
+    /* Les deux disques jaunes flottent doucement, comme des bulles */
+    '.acc-hero::before, .acc-hero::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; will-change: transform; }',
+    '.acc-hero::before { width: 128px; height: 128px; left: calc(96% - 64px); top: calc(4% - 64px); background: rgba(245,166,35,.28); animation: acc-bulle1 11s ease-in-out infinite; }',
+    '.acc-hero::after { width: 60px; height: 60px; left: calc(74% - 30px); top: calc(62% - 30px); background: rgba(245,166,35,.16); animation: acc-bulle2 8s ease-in-out infinite; }',
+    '.acc-hero > * { position: relative; z-index: 1; }',
+    '@keyframes acc-bulle1 { 0%, 100% { transform: translate(0, 0) scale(1); } 30% { transform: translate(-12px, 10px) scale(1.05); } 65% { transform: translate(6px, 16px) scale(.97); } }',
+    '@keyframes acc-bulle2 { 0%, 100% { transform: translate(0, 0) scale(1); } 25% { transform: translate(10px, -14px) scale(1.08); } 55% { transform: translate(-6px, -24px) scale(.94); } 80% { transform: translate(-12px, -8px) scale(1.03); } }',
     '.acc-hero-tete { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }',
     '.acc-statut { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.16); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; }',
     '.acc-statut::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #7EE0A1; }',
@@ -112,7 +119,7 @@
     '.acc-auto .ico { width: 12px; height: 12px; color: var(--canard); }',
     '.acc-stat:focus-visible, .acc-ligne:focus-visible, .ma-commande:focus-visible { outline: 3px solid var(--fromage); outline-offset: 2px; }',
     '@media (max-width: 600px) { .acc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
-    '@media (prefers-reduced-motion: reduce) { .acc-stat:hover, .ma-commande:hover { transform: none; } }'
+    '@media (prefers-reduced-motion: reduce) { .acc-stat:hover, .ma-commande:hover { transform: none; } .acc-hero::before, .acc-hero::after { animation: none; } }'
   ].join(' ');
   if (!document.getElementById('style-accueil')) {
     var st = document.createElement('style'); st.id = 'style-accueil'; st.textContent = STYLE; document.head.appendChild(st);
