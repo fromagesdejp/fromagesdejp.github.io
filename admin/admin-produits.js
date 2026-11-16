@@ -5,6 +5,9 @@
 
   var LAITS = { vache: 'Vache', chevre: 'Chèvre', brebis: 'Brebis', melange: 'Mélange', porc: 'Porc (charcuterie)', aucun: 'Aucun (plat)' };
   var MODES = { coupe: 'À la coupe (prix au kg)', piece: 'Pièce à prix fixe', poids_variable: 'Pièce à poids variable (prix au kg)' };
+  // Morceaux à la coupe possibles : 300 g, 500 g, puis de 500 g en 500 g jusqu'à 2 kg
+  var COUPES = [[300, '300 g'], [500, '500 g'], [1000, '1 kg'], [1500, '1,5 kg'], [2000, '2 kg']];
+  function coupeValide(g) { return g === 300 || (g >= 500 && g <= 2000 && g % 500 === 0); }
   var ouvert = null;        // id du produit en cours de modification
   var nouveauOuvert = false;
 
@@ -39,6 +42,16 @@
       function resume(pr, o) {
         if (!o || !o.portions.length) return 'Aucune portion';
         return o.portions.map(function (po) { return po.libelle + ' ' + prix(prixFinal(pr, po)); }).join(' · ');
+      }
+      // Coupes manquantes d'un produit (pour le bouton « Ajouter les coupes »)
+      function coupesManquantes(o) {
+        var deja = {};
+        o.portions.forEach(function (po) { if (po.mode === 'coupe') deja[po.poids_g] = po; });
+        return COUPES.filter(function (c) { return !deja[c[0]]; });
+      }
+      function prixKgCoupes(o) {
+        var c = o.portions.filter(function (po) { return po.mode === 'coupe' && po.prix_kg != null; })[0];
+        return c ? String(c.prix_kg).replace('.', ',') : '';
       }
 
       function formFiche(pr, pfx) {
@@ -112,10 +125,15 @@
               if (cid && o) {
                 h += '<h3 style="margin:18px 0 4px;font-size:16px">Portions et prix de cette campagne</h3>';
                 o.portions.forEach(function (po) { h += ligneportion(pr, po); });
+                var manque = coupesManquantes(o);
+                var libs = manque.map(function (c) { return c[1]; }).join(' / ');
                 h += '<div class="carte" style="margin:8px 0;padding:12px;box-shadow:none;background:var(--canard-clair)">' +
-                  '<div class="champ"><label for="aj' + pr.id + '-pkg">Ajouter les trois coupes (300 g, 500 g, 1 kg) au prix au kg de</label>' +
-                  '<input id="aj' + pr.id + '-pkg" inputmode="decimal" placeholder="Ex. : 16,00"></div>' +
-                  '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-ajout-coupes="' + pr.id + '">Ajouter 300 g / 500 g / 1 kg</button>' +
+                  (manque.length
+                    ? '<div class="champ"><label for="aj' + pr.id + '-pkg">Ajouter les coupes ' + esc(libs) + ' au prix au kg de</label>' +
+                      '<input id="aj' + pr.id + '-pkg" inputmode="decimal" placeholder="Ex. : 16,00" value="' + esc(prixKgCoupes(o)) + '"></div>'
+                    : '<p style="margin:0 0 8px;font-size:14px">Toutes les coupes sont proposées (300 g, 500 g, 1 kg, 1,5 kg, 2 kg).</p>') +
+                  '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                  (manque.length ? '<button class="btn" type="button" data-ajout-coupes="' + pr.id + '">Ajouter ' + esc(libs) + '</button>' : '') +
                   '<button class="btn clair" type="button" data-ajout-portion="' + pr.id + '">Ajouter une autre portion</button></div></div>' +
                   '<h3 style="margin:18px 0 4px;font-size:16px">Limites (facultatif)</h3>' +
                   '<div class="grille2"><div class="champ"><label for="of' + o.id + '-stock">Stock maximum (kg)</label><input id="of' + o.id + '-stock" inputmode="decimal" value="' + (o.stock_g ? String(o.stock_g / 1000).replace('.', ',') : '') + '"></div>' +
@@ -212,6 +230,9 @@
         if (d.poEnr) {
           var corps = lirePortion(d.poEnr);
           if (!corps.libelle || !corps.poids_g) { toast('Indiquez le libellé et le poids.'); return; }
+          if (corps.mode === 'coupe' && !coupeValide(corps.poids_g)) {
+            toast('À la coupe : 300 g, 500 g, puis de 500 g en 500 g jusqu’à 2 kg (1 000, 1 500 ou 2 000 g).'); return;
+          }
           api('portions?id=eq.' + d.poEnr, { method: 'PATCH', body: corps }).then(function () { return recharger('Portion enregistrée'); }).catch(echec);
           return;
         }
@@ -224,12 +245,12 @@
           var pk = num(val('aj' + d.ajoutCoupes + '-pkg') || 'x');
           if (!pk) { toast('Indiquez le prix au kg.'); return; }
           var of = offreDe[Number(d.ajoutCoupes)];
-          var base = of.portions.length;
-          api('portions', { method: 'POST', body: [
-            { offre_id: of.id, libelle: '300 g', mode: 'coupe', poids_g: 300, prix_kg: pk, ordre: base + 1 },
-            { offre_id: of.id, libelle: '500 g', mode: 'coupe', poids_g: 500, prix_kg: pk, ordre: base + 2 },
-            { offre_id: of.id, libelle: '1 kg', mode: 'coupe', poids_g: 1000, prix_kg: pk, ordre: base + 3 }
-          ] }).then(function () { return recharger('Coupes ajoutées'); }).catch(echec);
+          var base = of.portions.reduce(function (m, po) { return Math.max(m, po.ordre || 0); }, 0);
+          var nouvelles = coupesManquantes(of).map(function (c, i) {
+            return { offre_id: of.id, libelle: c[1], mode: 'coupe', poids_g: c[0], prix_kg: pk, ordre: base + i + 1 };
+          });
+          if (!nouvelles.length) return;
+          api('portions', { method: 'POST', body: nouvelles }).then(function () { return recharger('Coupes ajoutées'); }).catch(echec);
           return;
         }
         if (d.ajoutPortion) {

@@ -135,7 +135,7 @@
       if (b.dataset.vue === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     app.innerHTML = '<p class="chargement">Chargement…</p>';
-    app.onclick = null;
+    app.onclick = null; app.onchange = null; app.onkeydown = null;
     // L'accueil est dans admin-accueil.js (l'ancien reste en secours)
     var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
     chargerCampagne().then(f).catch(erreur);
@@ -164,9 +164,9 @@
   }
 
   function chargerCommandes() {
-    return api('commandes?select=id,numero,reference,montant,paye,moyen,paye_le,montant_recu,recupere,commentaire,point_id,created_at,updated_at,' +
+    return api('commandes?select=id,numero,reference,montant,paye,moyen,paye_le,montant_recu,recupere,commentaire,point_id,prete_le,created_at,updated_at,' +
       'gourmet:gourmets(prenom,nom,email,telephone),' +
-      'lignes(quantite,prix_unitaire,retiree,portion:portions(libelle,ordre,offre:offres(ordre,produit:produits(nom))))' +
+      'lignes(quantite,prix_unitaire,retiree,poids_reels,prix_final,portion:portions(libelle,ordre,offre:offres(ordre,produit:produits(nom))))' +
       '&campagne_id=eq.' + campagne.id + '&statut=eq.validee&order=created_at.desc');
   }
   function nomPoint(id) { var p = points.filter(function (x) { return x.id === id; })[0]; return p ? p.ville : ''; }
@@ -239,11 +239,11 @@
             '<span class="mt">' + prix(c.montant) + '</span></button>' +
             '<div class="detail" id="detail-' + c.id + '" hidden>';
           c.lignes.slice().sort(function (a, b) { return (a.portion.offre.ordre - b.portion.offre.ordre) || (a.portion.ordre - b.portion.ordre); }).forEach(function (l) {
-            h += '<div' + (l.retiree ? ' style="text-decoration:line-through;color:var(--texte-doux)"' : '') + '><span>' + l.quantite + ' × ' + esc(l.portion.offre.produit.nom + ', ' + l.portion.libelle) + '</span><b>' + prix(l.quantite * l.prix_unitaire) + '</b></div>';
+            h += '<div' + (l.retiree ? ' style="text-decoration:line-through;color:var(--texte-doux)"' : '') + '><span>' + l.quantite + ' × ' + esc(l.portion.offre.produit.nom + ', ' + l.portion.libelle) + (l.poids_reels ? ' <small>(' + l.poids_reels.map(function (x) { return x + ' g'; }).join(' + ') + ')</small>' : '') + '</span><b>' + prix(l.prix_final != null ? l.prix_final : l.quantite * l.prix_unitaire) + '</b></div>';
           });
           if (c.commentaire) h += '<p style="margin:8px 0 0"><b>Son mot :</b> « ' + esc(c.commentaire) + ' »</p>';
           h += '<p style="margin:8px 0 0;color:var(--texte-doux)">' + esc([g.email, g.telephone].filter(Boolean).join(' · ')) + '</p>' +
-            '<p style="margin:8px 0 0">' + (c.paye ? 'Payée (' + esc(MOYENS[c.moyen] || '') + ')' : 'Pas encore payée') + '</p></div></div>';
+            '<p style="margin:8px 0 0">' + (c.paye ? 'Payée (' + esc(MOYENS[c.moyen] || '') + ')' : (c.prete_le ? 'Validée, pas encore payée' : 'En attente de pesée (montant estimé)')) + '</p></div></div>';
         });
         h += '</div>';
         app.innerHTML = h;
@@ -265,7 +265,9 @@
       var recherche = '';
       function dessiner() {
         var payes = cmds.filter(function (c) { return c.paye; });
-        var aPayer = cmds.filter(function (c) { return !c.paye; });
+        // Seules les commandes validées par JP (après la pesée) peuvent être payées
+        var aPayer = cmds.filter(function (c) { return !c.paye && c.prete_le; });
+        var enAttente = cmds.filter(function (c) { return !c.paye && !c.prete_le; });
         var attendu = aPayer.reduce(function (a, c) { return a + Number(c.montant); }, 0);
         var q = recherche.toLowerCase().replace(',', '.');
         var vis = aPayer.filter(function (c) {
@@ -279,8 +281,9 @@
           '<div class="stat"><b style="font-size:19px">' + prix(attendu) + '</b><span>attendus</span></div></div></section>' +
           '<div class="champ" style="margin:0 16px 12px"><label for="cherche">Chercher un nom, une référence ou un montant</label>' +
           '<input id="cherche" type="search" value="' + esc(recherche) + '" placeholder="Ex. : Martin ou 48,60"></div>' +
+          (enAttente.length ? '<button type="button" class="bandeau info" data-aller="pesee" style="display:block;width:calc(100% - 32px);margin:0 16px 12px;text-align:left;cursor:pointer;font:inherit;border:0">' + enAttente.length + ' commande' + (enAttente.length > 1 ? 's' : '') + ' en attente de pesée : le gourmet pourra payer quand vous l’aurez validée. <b>Aller à la pesée ›</b></button>' : '') +
           '<h2 style="margin:8px 16px;font-size:17px">Reste à payer</h2><div class="liste">';
-        if (!vis.length) h += '<div class="ligne"><span class="txt">' + (aPayer.length ? 'Aucun résultat.' : 'Tout est payé !') + '</span></div>';
+        if (!vis.length) h += '<div class="ligne"><span class="txt">' + (aPayer.length ? 'Aucun résultat.' : (enAttente.length ? 'Rien à encaisser pour l’instant.' : 'Tout est payé !')) + '</span></div>';
         vis.forEach(function (c) {
           var g = c.gourmet || {};
           // Boutons en grille : 2 par ligne sur téléphone, 4 côte à côte sur grand écran (rien ne dépasse)

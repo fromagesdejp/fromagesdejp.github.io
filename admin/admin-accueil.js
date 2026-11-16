@@ -17,6 +17,7 @@
     fromage: '<path d="M2.5 11 16 4.5l5.5 6.5"/><path d="M2.5 11h19v7.5a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M2.5 13.8a1.8 1.8 0 0 1 0 3.4"/><circle cx="9" cy="15.5" r="1.6"/><circle cx="16" cy="14.3" r="1"/><circle cx="17.6" cy="17.6" r=".5"/>',
     calendrier: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     mail: '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/>',
+    balance: '<path d="M12 3v18M5 21h14"/><path d="M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/>',
     ok: '<path d="M20 6 9 17l-5-5"/>',
     fleche: '<path d="m9 18 6-6-6-6"/>'
   };
@@ -128,15 +129,18 @@
       return;
     }
     return Promise.all([
-      FJP.api('commandes?select=id,montant,paye&campagne_id=eq.' + campagne.id + '&statut=eq.validee'),
+      FJP.api('commandes?select=id,montant,paye,prete_le&campagne_id=eq.' + campagne.id + '&statut=eq.validee'),
       FJP.api('gourmets?select=id&actif=eq.true')
     ]).then(function (r) {
       var cmds = r[0], nbG = r[1].length, n = cmds.length;
       var total = cmds.reduce(function (a, c) { return a + Number(c.montant); }, 0);
-      var aPayer = cmds.filter(function (c) { return !c.paye; });
+      // Seules les commandes validées après la pesée sont à payer
+      var aPayer = cmds.filter(function (c) { return !c.paye && c.prete_le; });
+      var aValider = cmds.filter(function (c) { return !c.prete_le; }).length;
       var attendu = aPayer.reduce(function (a, c) { return a + Number(c.montant); }, 0);
       var sans = Math.max(0, nbG - n);
       var pct = nbG ? Math.min(100, Math.round(n / nbG * 100)) : 0;
+      var ouverte = campagne.statut === 'ouverte' || campagne.statut === 'preparation';
       var reste = campagne.statut === 'ouverte' ? avantCloture(campagne.cloture) : null;
 
       var h = tete +
@@ -150,31 +154,31 @@
 
       h += '<div class="acc-stats">' +
         stat('commandes', 'panier', false, n, n > 1 ? 'commandes reçues' : 'commande reçue') +
-        stat('commandes', 'graphe', false, esc(prix(total)), 'au total') +
-        stat('paiements', 'euro', aPayer.length > 0, esc(prix(attendu)), aPayer.length ? aPayer.length + ' commande' + (aPayer.length > 1 ? 's' : '') + ' à payer' : 'tout est payé') +
+        stat('commandes', 'graphe', false, esc(prix(total)), ouverte || aValider ? 'au total (estimé)' : 'au total') +
+        stat('paiements', 'euro', aPayer.length > 0, esc(prix(attendu)), aPayer.length ? aPayer.length + ' commande' + (aPayer.length > 1 ? 's' : '') + ' à payer' : (aValider ? 'à payer après la pesée' : 'tout est payé')) +
         stat('gourmets', 'gens', sans > 0, sans, 'gourmet' + (sans > 1 ? 's' : '') + ' sans commande') +
+        '</div>';
+
+      // À l'arrivée des fromages : pesée, puis un seul mail par gourmet avec le montant exact
+      h += '<h2 class="acc-titre">Arrivée des fromages</h2><div class="acc-bloc">' +
+        ligne('data-aller="pesee"', 'balance', 'Pesée et validation',
+          !n ? 'Personne n’a encore commandé'
+            : ouverte ? 'Après la clôture : poids de chaque morceau, puis mail au gourmet'
+            : aValider ? aValider + ' commande' + (aValider > 1 ? 's' : '') + ' à peser et valider' : 'Toutes les commandes sont validées', true) +
         '</div>';
 
       h += RACCOURCIS;
 
       h += '<h2 class="acc-titre">Mails</h2><div class="acc-bloc">' +
-        ligne('data-arrivee', 'camion', 'Les fromages sont arrivés', n ? 'Prévenir ' + (n > 1 ? 'les ' + n + ' gourmets' : 'le gourmet') + ' qui ' + (n > 1 ? 'ont' : 'a') + ' commandé' : 'Personne n’a encore commandé', true) +
         ligne('data-ouverture', 'mail', 'Envoyer le mail d’ouverture', 'Aux gourmets qui ne l’ont pas encore reçu') +
         '</div><p class="acc-auto">Envoyés tout seuls :' +
-        ['confirmation de chaque commande', 'mail d’ouverture', 'rappel 3 jours avant', 'rappel la veille'].map(function (t) { return '<span>' + ico('ok') + t + '</span>'; }).join('') + '</p>';
+        ['confirmation de chaque commande', 'mail d’ouverture', 'rappel 3 jours avant', 'rappel la veille', 'montant exact à la validation'].map(function (t) { return '<span>' + ico('ok') + t + '</span>'; }).join('') + '</p>';
 
       app.innerHTML = h;
       if (window.FJP_CARTE_MA_COMMANDE) window.FJP_CARTE_MA_COMMANDE();
 
       app.onclick = function (e) {
         var b = e.target.closest('button'); if (!b) return;
-        if (b.dataset.arrivee !== undefined) {
-          if (!n) { FJP.toast('Personne n’a encore commandé.'); return; }
-          if (!window.confirm('Prévenir les ' + n + ' gourmets qui ont commandé que les fromages sont arrivés ?')) return;
-          b.disabled = true;
-          FJP.api('rpc/annoncer_arrivee', { method: 'POST', body: { p_campagne_id: campagne.id } }).then(function (k) { FJP.toast(k + ' mail(s) envoyé(s)'); })
-            .catch(function (err) { b.disabled = false; FJP.toast('Erreur : ' + esc(err.message)); });
-        }
         if (b.dataset.ouverture !== undefined) {
           b.disabled = true;
           FJP.api('rpc/annoncer_ouverture', { method: 'POST', body: { p_campagne_id: campagne.id } }).then(function (k) { FJP.toast(k + ' mail(s) envoyé(s)'); })

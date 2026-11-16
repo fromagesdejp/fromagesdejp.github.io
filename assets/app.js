@@ -38,6 +38,7 @@
     return 'Il reste ' + j + ' jour' + (j > 1 ? 's' : '');
   }
   function poids(g) { return g >= 1000 ? (g / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' kg' : g + ' g'; }
+  function poidsPrecis(g) { return g >= 1000 ? (g / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g'; }
   var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache' };
 
   // ---------- Appels à la base ----------
@@ -57,6 +58,7 @@
   // ---------- État ----------
   var jeton = null;
   var data = null;          // réponse de bon_de_commande
+  var derniere = null;      // dernière commande d'une campagne close (pesée, montant à payer)
   var qte = {};             // portion_id -> quantité
   var point = null;         // point de livraison choisi
   var commentaire = '';
@@ -64,6 +66,7 @@
   var alerte = null;        // { type, html }
   var envoiEnCours = false;
   var portionsParId = {};
+  var grandsOuverts = {};   // offre_id -> grands morceaux dépliés
 
   // Lien personnel : dans l'adresse (?k=…), sinon mémorisé sur cet appareil
   (function () {
@@ -79,8 +82,12 @@
   // mode : undefined = chargement normal, 'apres' = après validation, 'garder' = garder la saisie en cours
   function charger(mode) {
     if (!jeton) { afficherSansLien(); return; }
-    return rpc('bon_de_commande', { p_jeton: jeton }).then(function (d) {
-      data = d;
+    return Promise.all([
+      rpc('bon_de_commande', { p_jeton: jeton }),
+      rpc('derniere_commande', { p_jeton: jeton }).catch(function () { return null; })
+    ]).then(function (res) {
+      var d = res[0];
+      data = d; derniere = res[1] || null;
       if (d.erreur === 'lien_invalide') { stocker('fjp_lien', null); afficherLienInvalide(); return; }
       bonjour.textContent = 'Bonjour ' + d.gourmet.prenom;
       portionsParId = {};
@@ -127,18 +134,57 @@
   }
   function afficherFermee() {
     var d = data;
-    var h = '<div class="carte"><h1>Pas de commande en cours</h1>';
+    var h = derniere ? carteDerniere(derniere) : '';
+    h += '<div class="carte"><h1' + (derniere ? ' style="font-size:19px"' : '') + '>Pas de commande en cours</h1>';
     if (d.prochaine_commande) h += '<p>Prochaine commande prévue : <b>' + esc(dateSimple(d.prochaine_commande)) + '</b>. Vous recevrez un mail à l’ouverture.</p>';
     else h += '<p>Vous recevrez un mail dès que la prochaine commande sera ouverte.</p>';
     h += '</div>';
-    if (d.historique && d.historique.length) {
+    var hist = (d.historique || []).filter(function (x) { return !derniere || x.reference !== derniere.reference; });
+    if (hist.length) {
       h += '<div class="carte"><h1 style="font-size:19px">Mes commandes</h1><ul class="historique">';
-      d.historique.forEach(function (x) {
-        h += '<li>' + esc(x.campagne) + ' : <b>' + prix(x.montant) + '</b>' + (x.paye ? ' — payée' : ' — à payer') + '</li>';
+      hist.forEach(function (x) {
+        h += '<li>' + esc(x.campagne) + ' : <b>' + prix(x.montant) + '</b>' + (x.paye ? ' — payée' : '') + '</li>';
       });
       h += '</ul></div>';
     }
     app.innerHTML = h;
+  }
+
+  // Commande d'une campagne close : en attente de pesée, puis montant exact à payer
+  function carteDerniere(dc) {
+    var h = '<section class="carte"><h1 style="font-size:20px">Ma commande « ' + esc(dc.campagne) + ' »</h1>';
+    if (!dc.prete) {
+      h += '<div class="bandeau info" style="margin:0 0 12px">Jean-Paul prépare votre commande et pèse les fromages à la coupe. Vous recevrez par mail le montant exact à payer : rien à régler pour l’instant.</div>';
+    }
+    dc.lignes.forEach(function (l) {
+      var pese = dc.prete && l.poids_reels && l.poids_reels.length;
+      h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(l.nom) +
+        (pese ? '<small style="display:block;font-size:13px;color:var(--texte-doux)">pesé : ' + esc(l.poids_reels.map(poidsPrecis).join(' + ')) + '</small>' : '') +
+        '</span><b>' + prix(dc.prete ? l.prix : l.estime) + '</b></div>';
+    });
+    h += '<div class="recap-total"><span>' + (dc.prete ? (dc.paye ? 'Montant payé' : 'Montant à payer') : 'Montant estimé') + '</span><b>' + prix(dc.montant) + '</b></div>';
+    if (dc.point) {
+      h += '<p style="margin-top:10px;font-size:14px;color:var(--texte-doux)">Livraison ' + esc(dateSimple(dc.point.date_livraison)) + ' · ' +
+        esc([dc.point.ville, dc.point.lieu, dc.point.heure].filter(Boolean).join(', ')) + '</p>';
+    }
+    h += '</section>';
+    if (dc.prete) {
+      var r = (data && data.reglages) || {};
+      h += '<section class="carte virement"><h2>' + (dc.paye ? 'Paiement reçu, merci !' : 'Pour payer par virement') + '</h2>';
+      if (!dc.paye) {
+        if (r.iban) {
+          if (r.titulaire) h += '<div class="etiq">Titulaire</div><div class="val">' + esc(r.titulaire) + '</div>';
+          h += '<div class="etiq">IBAN</div><div class="val">' + esc(r.iban) + '</div>';
+        } else {
+          h += '<p>Jean-Paul vous indiquera ses coordonnées bancaires.</p>';
+        }
+        h += '<div class="etiq">À écrire dans le libellé du virement</div><div class="ref"><div class="val" id="ref">' + esc(dc.reference) + '</div>' +
+          '<button type="button" class="petit-bouton" id="copier">Copier</button></div>' +
+          '<p style="margin:10px 0 0;font-size:13px;color:var(--texte-doux)">Vous pouvez aussi payer en espèces ou par chèque à la livraison.</p>';
+      }
+      h += '</section>';
+    }
+    return h;
   }
 
   // ---------- Calculs ----------
@@ -165,6 +211,8 @@
     if (vue === 'confirmation' && data.commande) { afficherConfirmation(); return; }
     var d = data, c = d.campagne, fin = new Date(c.cloture);
     var h = '';
+    // Commande précédente pesée mais pas encore payée : on la rappelle en haut
+    if (derniere && derniere.prete && !derniere.paye) h += carteDerniere(derniere);
     h += '<section class="carte"><h1>' + esc(c.nom) + '</h1>';
     if (c.message) h += '<p class="message">' + esc(c.message) + '</p>';
     if (d.reglages && d.reglages.signature) h += '<p class="message">' + esc(d.reglages.signature) + '</p>';
@@ -183,7 +231,7 @@
       h += '</div>';
     }
     h += '</section>';
-    h += '<p class="avis">Prix fermes, transport compris. Produits sous réserve de disponibilité. Produits à la coupe : 300 g, 500 g ou 1 kg.</p>';
+    h += '<p class="avis">Prix transport compris. Les fromages à la coupe (300 g, 500 g, 1 kg, jusqu’à 2 kg) ne tombent jamais au gramme près : leur prix est estimé ici, puis calculé au poids réel à l’arrivée. Vous paierez seulement quand Jean-Paul vous aura envoyé le montant exact. Produits sous réserve de disponibilité.</p>';
 
     if (alerte) h += '<div class="bandeau ' + alerte.type + '" role="alert">' + alerte.html + '</div>';
     if (d.commande) h += '<div class="bandeau info">Votre commande est déjà enregistrée. Modifiez les quantités puis validez à nouveau.</div>';
@@ -210,21 +258,29 @@
             '<div class="jauge-barre" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pc + '"><div style="width:' + pc + '%"></div></div></div>';
         }
         h += '</div></div><div class="portions">';
+        // Les grands morceaux (1,5 kg, 2 kg) sont repliés pour garder le bon court
+        var grands = pr.portions.filter(function (po) { return po.mode === 'coupe' && po.poids_g > 1000; });
+        var montrerGrands = grandsOuverts[pr.offre_id] || grands.some(function (po) { return qte[po.id] > 0; });
         pr.portions.forEach(function (po) {
+          if (grands.indexOf(po) >= 0 && !montrerGrands) return;
           var q = qte[po.id] || 0;
           var plusOff = !po.disponible;
           var sous = '';
-          if (po.mode === 'coupe' && po.prix_kg) sous = esc(prix(po.prix_kg)) + ' le kg';
+          if (po.mode === 'coupe' && po.prix_kg) sous = esc(prix(po.prix_kg)) + ' le kg · prix au poids réel';
           else if (po.mode === 'poids_variable' && po.prix_kg) sous = 'au prix de ' + esc(poids(po.poids_g)) + ' à ' + esc(prix(po.prix_kg)) + ' le kg';
           h += '<div class="portion"><span class="portion-lib">' + esc(po.libelle) + (sous ? '<small>' + sous + '</small>' : '') +
             (plusOff ? '<span class="epuise">Plus assez de stock</span>' : '') + '</span>' +
-            '<span class="portion-prix">' + prix(po.prix) + '</span>' +
+            '<span class="portion-prix">' + (po.mode === 'coupe' ? '≈ ' : '') + prix(po.prix) + '</span>' +
             '<span class="compteur">' +
             '<button type="button" class="moins" data-moins="' + po.id + '" aria-label="Retirer : ' + esc(pr.nom + ', ' + po.libelle) + '"' + (q ? '' : ' disabled') + '>−</button>' +
             '<output aria-label="Quantité">' + q + '</output>' +
             '<button type="button" class="plus" data-plus="' + po.id + '" aria-label="Ajouter : ' + esc(pr.nom + ', ' + po.libelle) + '"' + (plusOff ? ' disabled' : '') + '>+</button>' +
             '</span></div>';
         });
+        if (grands.length && !montrerGrands) {
+          h += '<button type="button" class="petit-bouton" data-grands="' + pr.offre_id + '" style="margin:6px 0 0">Plus gros morceau : ' +
+            esc(grands.map(function (po) { return po.libelle; }).join(' ou ')) + '</button>';
+        }
         h += '</div></article>';
       });
       h += '</div></section>';
@@ -244,7 +300,7 @@
     var t = total();
     var nb = document.getElementById('nb-articles'), tot = document.getElementById('total'), b = document.getElementById('valider');
     if (!nb) return;
-    nb.textContent = t.articles ? t.articles + ' article' + (t.articles > 1 ? 's' : '') + ' · total' : 'Aucun article';
+    nb.textContent = t.articles ? t.articles + ' article' + (t.articles > 1 ? 's' : '') + ' · total estimé' : 'Aucun article';
     tot.textContent = prix(t.montant);
     b.disabled = envoiEnCours || t.articles === 0 || (data.commande && !modifie());
     b.textContent = envoiEnCours ? 'Envoi…' : (data.commande ? 'Valider les modifications' : 'Valider ma commande');
@@ -263,6 +319,7 @@
     var pt = d.points.filter(function (p) { return p.id === cmd.point_id; })[0];
     var h = '';
     if (alerte) h += '<div class="bandeau ' + alerte.type + '" role="alert">' + alerte.html + '</div>';
+    if (derniere && derniere.prete && !derniere.paye) h += carteDerniere(derniere);
     h += '<section class="carte"><div class="coche" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>' +
       '<h1>Merci ' + esc(d.gourmet.prenom) + ' !</h1><p>Votre commande « ' + esc(c.nom) + ' » est bien enregistrée.</p>';
     cmd.lignes.forEach(function (l) {
@@ -270,23 +327,14 @@
       var nom = l.nom || (e ? e.produit.nom + ', ' + e.portion.libelle : 'Produit');
       h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(nom) + '</span><b>' + prix(l.quantite * l.prix_unitaire) + '</b></div>';
     });
-    h += '<div class="recap-total"><span>Total à payer</span><b>' + prix(cmd.montant) + '</b></div>';
+    h += '<div class="recap-total"><span>Montant estimé</span><b>' + prix(cmd.montant) + '</b></div>';
     if (pt) h += '<p style="margin-top:10px;font-size:14px;color:var(--texte-doux)">Livraison ' + esc(dateSimple(pt.date_livraison)) + ' · ' + esc([pt.ville, pt.lieu, pt.heure].filter(Boolean).join(', ')) + '</p>';
     if (cmd.commentaire) h += '<p style="font-size:14px;color:var(--texte-doux)">Votre mot : « ' + esc(cmd.commentaire) + ' »</p>';
     h += '</section>';
 
-    var r = d.reglages || {};
-    h += '<section class="carte virement"><h2>' + (cmd.paye ? 'Paiement reçu, merci !' : 'Pour payer par virement') + '</h2>';
+    h += '<section class="carte virement"><h2>' + (cmd.paye ? 'Paiement reçu, merci !' : 'Rien à payer pour l’instant') + '</h2>';
     if (!cmd.paye) {
-      if (r.iban) {
-        if (r.titulaire) h += '<div class="etiq">Titulaire</div><div class="val">' + esc(r.titulaire) + '</div>';
-        h += '<div class="etiq">IBAN</div><div class="val">' + esc(r.iban) + '</div>';
-      } else {
-        h += '<p>Jean-Paul vous indiquera ses coordonnées bancaires.</p>';
-      }
-      h += '<div class="etiq">À écrire dans le libellé du virement</div><div class="ref"><div class="val" id="ref">' + esc(cmd.reference) + '</div>' +
-        '<button type="button" class="petit-bouton" id="copier">Copier</button></div>' +
-        '<p style="margin:10px 0 0;font-size:13px;color:var(--texte-doux)">Vous pouvez aussi payer en espèces ou par chèque à la livraison.</p>';
+      h += '<p style="margin:0">À l’arrivée des fromages, Jean-Paul pèse chaque morceau à la coupe et vous envoie par mail le <b>montant exact</b>, avec ses coordonnées pour le virement. Vous pourrez aussi payer en espèces ou par chèque à la livraison.</p>';
     }
     h += '</section>';
 
@@ -335,6 +383,7 @@
   app.addEventListener('click', function (e) {
     var t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.grands) { grandsOuverts[t.dataset.grands] = true; var y = window.scrollY; afficher(); window.scrollTo(0, y); return; }
     if (t.dataset.plus) { qte[t.dataset.plus] = (qte[t.dataset.plus] || 0) + 1; majPortion(t.dataset.plus); return; }
     if (t.dataset.moins) { qte[t.dataset.moins] = Math.max(0, (qte[t.dataset.moins] || 0) - 1); majPortion(t.dataset.moins); return; }
     if (t.dataset.point) {
