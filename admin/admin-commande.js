@@ -26,7 +26,7 @@
     var FJP = window.FJP, esc = FJP.esc;
     FJP.app.innerHTML = '<div class="barre-bon"><button type="button" class="btn clair" id="retour-bon">‹ Retour</button>' +
       '<span>' + esc(titre) + '</span></div>' +
-      '<iframe class="bon-dans-appli" title="Bon de commande" src="../?k=' + encodeURIComponent(jeton) + '&appli=1"></iframe>';
+      '<iframe class="bon-dans-appli" title="Bon de commande" src="../?k=' + encodeURIComponent(jeton) + '&appli=1&v=' + Date.now() + '"></iframe>';
     document.getElementById('retour-bon').onclick = function () { FJP.aller(retour || 'accueil'); };
   }
 
