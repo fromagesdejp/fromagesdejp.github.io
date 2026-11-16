@@ -130,6 +130,7 @@
   var points = [];
 
   function aller(vue) {
+    if (vue === 'pesee') vue = 'commandes'; // Commandes et Pesée ne font plus qu'une rubrique
     vueCourante = vue; if (vue !== 'bon' && vue !== 'macommande') stocker('fjp_vue', vue);
     onglets.querySelectorAll('button').forEach(function (b) {
       if (b.dataset.vue === vue) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -137,7 +138,7 @@
     app.innerHTML = '<p class="chargement">Chargement…</p>';
     app.onclick = null; app.onchange = null; app.onkeydown = null;
     // L'accueil est dans admin-accueil.js (l'ancien reste en secours)
-    var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
+    var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: (window.FJP_VUES && window.FJP_VUES.pesee) || vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
     chargerCampagne().then(f).catch(erreur);
     window.scrollTo(0, 0);
   }
@@ -281,7 +282,7 @@
           '<div class="stat"><b style="font-size:19px">' + prix(attendu) + '</b><span>attendus</span></div></div></section>' +
           '<div class="champ" style="margin:0 16px 12px"><label for="cherche">Chercher un nom, une référence ou un montant</label>' +
           '<input id="cherche" type="search" value="' + esc(recherche) + '" placeholder="Ex. : Martin ou 48,60"></div>' +
-          (enAttente.length ? '<button type="button" class="bandeau info" data-aller="pesee" style="display:block;width:calc(100% - 32px);margin:0 16px 12px;text-align:left;cursor:pointer;font:inherit;border:0">' + enAttente.length + ' commande' + (enAttente.length > 1 ? 's' : '') + ' en attente de pesée : le gourmet pourra payer quand vous l’aurez validée. <b>Aller à la pesée ›</b></button>' : '') +
+          (enAttente.length ? '<button type="button" class="bandeau info" data-aller="pesee" style="display:block;width:calc(100% - 32px);margin:0 16px 12px;text-align:left;cursor:pointer;font:inherit;border:0">' + enAttente.length + ' commande' + (enAttente.length > 1 ? 's' : '') + ' en attente de préparation : le gourmet pourra payer quand vous l’aurez validée. <b>Aller aux commandes ›</b></button>' : '') +
           '<h2 style="margin:8px 16px;font-size:17px">Reste à payer</h2><div class="liste">';
         if (!vis.length) h += '<div class="ligne"><span class="txt">' + (aPayer.length ? 'Aucun résultat.' : (enAttente.length ? 'Rien à encaisser pour l’instant.' : 'Tout est payé !')) + '</span></div>';
         vis.forEach(function (c) {

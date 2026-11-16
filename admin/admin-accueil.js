@@ -168,7 +168,7 @@
 
       // À l'arrivée des fromages : pesée, puis un seul mail par gourmet avec le montant exact
       h += '<h2 class="acc-titre">Arrivée des fromages</h2><div class="acc-bloc">' +
-        ligne('data-aller="pesee"', 'balance', 'Pesée et validation',
+        ligne('data-aller="commandes"', 'balance', 'Préparer et valider les commandes',
           !n ? 'Personne n’a encore commandé'
             : ouverte ? 'Après la clôture : poids de chaque morceau, puis mail au gourmet'
             : aValider ? aValider + ' commande' + (aValider > 1 ? 's' : '') + ' à peser et valider' : 'Toutes les commandes sont validées', true) +

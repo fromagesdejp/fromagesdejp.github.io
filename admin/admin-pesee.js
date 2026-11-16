@@ -1,4 +1,4 @@
-// Les Fromages Jean-Paul — espace de Jean-Paul : préparation, pesée et validation des commandes
+// Les Fromages Jean-Paul — espace de Jean-Paul : rubrique « Commandes » (liste, préparation, pesée et validation)
 // Après la clôture, JP rassemble les produits de chaque gourmet et coche chaque article prêt.
 // Pour un fromage à la coupe, il indique le prix de chaque morceau (par défaut) ou son poids.
 // Quand tous les articles sont cochés, il valide la commande : le montant devient définitif
@@ -51,7 +51,7 @@
     var st = document.createElement('style'); st.id = 'style-pesee'; st.textContent = STYLE; document.head.appendChild(st);
   }
 
-  var filtre = 'a_faire';   // 'a_faire' | 'validees' | 'toutes'
+  var filtre = null;        // 'a_faire' | 'validees' | 'toutes' (au départ : toutes si la campagne est ouverte)
   var filtrePoint = 'tous';
   var modes = {};           // ligne_id -> 'prix' | 'poids' (le prix par défaut)
 
@@ -65,10 +65,13 @@
   window.FJP_VUES.pesee = function () {
     var FJP = window.FJP, esc = FJP.esc, prix = FJP.prix, app = FJP.app, nomG = FJP.nomG;
     var campagne = FJP.campagne(), points = FJP.points();
-    if (!campagne) { app.innerHTML = '<div class="carte"><h1>Aucune campagne en cours</h1></div>'; return; }
+    if (!campagne) { app.innerHTML = '<div class="carte"><h1>Aucune campagne en cours</h1><p>Créez-en une dans la rubrique « Campagnes ».</p></div>'; return; }
+    var ouverte = campagne.statut === 'ouverte' || campagne.statut === 'preparation';
+    if (!filtre) filtre = ouverte ? 'toutes' : 'a_faire';
 
-    return FJP.api('commandes?select=id,reference,montant,paye,prete_le,point_id,' +
-      'gourmet:gourmets(prenom,nom),' +
+    var MOYENS = { virement: 'virement', especes: 'espèces', cheque: 'chèque', autre: 'autre' };
+    return FJP.api('commandes?select=id,reference,montant,paye,moyen,commentaire,prete_le,point_id,' +
+      'gourmet:gourmets(prenom,nom,email,telephone),' +
       'lignes(id,quantite,prix_unitaire,poids_g,poids_reels,prix_reels,prix_final,preparee,retiree,portion:portions(libelle,mode,ordre,offre:offres(ordre,produit:produits(nom))))' +
       '&campagne_id=eq.' + campagne.id + '&statut=eq.validee').then(function (cmds) {
       var ouvert = null; // commande dépliée
@@ -96,21 +99,25 @@
         var validees = cmds.filter(function (c) { return c.prete_le; }).length;
         var totA = 0, totP = 0;
         cmds.forEach(function (c) { totA += articles(c).length; totP += nbPrets(c); });
-        return '<h1 style="font-size:20px;margin:0 0 4px">Pesée et validation</h1>' +
-          '<p style="margin:0;color:var(--texte-doux);font-size:14px">Rassemblez les produits de chaque gourmet et cochez chaque article prêt. Pour la coupe, indiquez le prix (ou le poids) de chaque morceau. Quand tout est coché, validez : le gourmet reçoit un mail avec le lieu, l’heure et le montant exact à payer.</p>' +
+        var somme = cmds.reduce(function (a, c) { return a + Number(c.montant); }, 0);
+        return '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><h1 style="font-size:20px;margin:0;flex-grow:1">Commandes</h1>' +
+          '<b style="font-size:17px">' + cmds.length + ' commande' + (cmds.length > 1 ? 's' : '') + ' · ' + prix(somme) + (ouverte || validees < cmds.length ? ' (estimé)' : '') + '</b></div>' +
+          '<p style="margin:4px 0 0;color:var(--texte-doux);font-size:14px">' + (ouverte
+            ? 'Touchez un gourmet pour voir sa commande. Après la clôture, à l’arrivée des fromages : cochez chaque article prêt (pour la coupe, indiquez le prix ou le poids de chaque morceau), puis validez pour envoyer le montant exact au gourmet.'
+            : 'Rassemblez les produits de chaque gourmet et cochez chaque article prêt. Pour la coupe, indiquez le prix (ou le poids) de chaque morceau. Quand tout est coché, validez : le gourmet reçoit un mail avec le lieu, l’heure et le montant exact à payer.') + '</p>' +
           '<div class="pe-global"><div class="pe-prog"><span><b>' + validees + '</b> commande' + (validees > 1 ? 's' : '') + ' validée' + (validees > 1 ? 's' : '') + ' sur ' + cmds.length + '</span><span>' + (cmds.length ? Math.round(100 * validees / cmds.length) : 0) + ' %</span></div>' + barre(validees, cmds.length) + '</div>' +
           '<div class="pe-global"><div class="pe-prog">' + texteProg(totP, totA) + '</div>' + barre(totP, totA) + '</div>';
       }
 
       function dessiner() {
         var h = '';
-        if (campagne.statut === 'ouverte' || campagne.statut === 'preparation') {
-          h += '<p class="bandeau attention" style="margin:16px">La validation se fait après la clôture, quand les fromages sont arrivés. Les commandes peuvent encore changer.</p>';
+        if (ouverte) {
+          h += '<p class="bandeau attention" style="margin:16px">Campagne ouverte : les gourmets peuvent encore modifier leur commande. La préparation et la validation se font après la clôture.</p>';
         }
         h += '<section class="carte" id="pe-entete">' + enTete() + '</section>';
 
         h += '<div class="filtres">' +
-          [['a_faire', 'À faire'], ['validees', 'Validées'], ['toutes', 'Toutes']].map(function (f) {
+          [['toutes', 'Toutes'], ['a_faire', 'À préparer'], ['validees', 'Validées']].map(function (f) {
             return '<button type="button" data-filtre="' + f[0] + '" aria-pressed="' + (filtre === f[0]) + '">' + f[1] + '</button>';
           }).join('') + '</div>';
         if (points.length > 1) {
@@ -124,12 +131,12 @@
           return filtrePoint === 'tous' || c.point_id === Number(filtrePoint);
         });
         h += '<div class="liste">';
-        if (!liste.length) h += '<div class="ligne"><span class="txt">' + (filtre === 'a_faire' ? 'Rien à faire ici.' : 'Aucune commande.') + '</span></div>';
+        if (!liste.length) h += '<div class="ligne"><span class="txt">' + (!cmds.length ? 'Aucune commande pour l’instant.' : (filtre === 'a_faire' ? 'Tout est préparé et validé !' : 'Aucune commande.')) + '</span></div>';
         liste.forEach(function (c) {
           var n = articles(c).length, k = nbPrets(c);
           h += '<div><button type="button" class="ligne" data-ouvrir="' + c.id + '" aria-expanded="' + (ouvert === c.id) + '" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;color:inherit;font:inherit;flex-wrap:wrap">' +
             '<span class="txt"><b>' + esc(nomG(c.gourmet)) + '</b><small>' + esc(ville(c.point_id)) + ' · ' + esc(c.reference || '') + '</small></span>' +
-            '<span id="etat-' + c.id + '">' + etat(c) + '</span><span class="mt" id="mt-' + c.id + '">' + prix(c.montant) + '</span>' +
+            (c.commentaire ? '<span class="pastille">un mot</span>' : '') + '<span id="etat-' + c.id + '">' + etat(c) + '</span><span class="mt" id="mt-' + c.id + '">' + prix(c.montant) + '</span>' +
             '<span class="pe-mini" id="mini-' + c.id + '">' + barre(k, n) + '</span></button>';
           if (ouvert === c.id) h += detail(c);
           h += '</div>';
@@ -183,7 +190,11 @@
             '<b id="prix-' + l.id + '">' + (coupe ? (l.prix_final != null ? prix(l.prix_final) : '—') : prix(estime)) + '</b></div>' +
             (coupe ? saisie(l, bloque) : '') + '</div></div>';
         });
-        h += '<div class="pe-total"><span>' + (c.prete_le ? 'Montant définitif' : 'Montant') + '</span><b id="total-' + c.id + '">' + prix(c.montant) + '</b></div>';
+        h += '<div class="pe-total"><span>' + (c.prete_le ? 'Montant définitif' : 'Montant estimé') + '</span><b id="total-' + c.id + '">' + prix(c.montant) + '</b></div>';
+        var g = c.gourmet || {};
+        if (c.commentaire) h += '<p style="margin:0 0 8px"><b>Son mot :</b> « ' + esc(c.commentaire) + ' »</p>';
+        h += '<p style="margin:0 0 10px;color:var(--texte-doux)">' + esc([g.email, g.telephone].filter(Boolean).join(' · ')) +
+          (c.paye ? ' · <b style="color:#1E7A46">payée (' + esc(MOYENS[c.moyen] || '') + ')</b>' : '') + '</p>';
         if (c.prete_le) {
           h += '<p class="pe-ok" style="margin:0 0 10px">✓ Validée, mail envoyé au gourmet' + (c.paye ? ' · payée' : '') + '</p>';
           if (!c.paye) h += '<button class="btn clair" type="button" data-rouvrir="' + c.id + '">Corriger (annuler la validation)</button>';

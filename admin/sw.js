@@ -1,5 +1,5 @@
 // Les Fromages Jean-Paul — appli de JP : fonctionnement hors connexion et notifications
-var VERSION = 'fjp-admin-7';
+var VERSION = 'fjp-admin-8';
 var FICHIERS = [
   './', './admin.css', './admin-theme.css', './admin.js', './admin-produits.js', './admin-campagnes.js', './admin-appli.js', './admin-commande.js', './admin-accueil.js', './admin-pesee.js',
   './manifest.webmanifest', '../assets/app.css', '../assets/config.js',
