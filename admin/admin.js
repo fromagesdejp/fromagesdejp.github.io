@@ -524,11 +524,10 @@
         cats.forEach(function (c) {
           h += '<tr class="cat"><td colspan="3">' + esc(c.nom) + '</td></tr>';
           c.produits.forEach(function (p) {
-            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>' +
-              (p.coupe ? '<tr><td colspan="3" style="color:#C62828;font-weight:700;padding-top:0">Merci d’indiquer les poids et le prix SVP</td></tr>' : '');
+            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
           });
         });
-        h += '</tbody></table><p style="font-size:16px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
+        h += '</tbody></table><p style="font-size:16px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p><p style="font-size:16px;font-weight:700;color:#C62828;margin-top:6px;line-height:1.4">Merci d’indiquer les poids et le prix SVP</p>';
       }
       // Coordonnées de JP, bien visibles en bas du bon (aussi à l'impression)
       h += '<div style="margin-top:18px;border:2px solid #0B6E78;border-radius:14px;padding:14px 16px;background:#F3FAFA;page-break-inside:avoid">' +
