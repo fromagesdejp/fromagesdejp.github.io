@@ -449,7 +449,15 @@
       point = Number(t.dataset.point);
       app.querySelectorAll('.point').forEach(function (b) { b.setAttribute('aria-pressed', String(Number(b.dataset.point) === point)); });
       if (alerte && alerte.type === 'attention') alerte = null;
-      majPied(); return;
+      majPied();
+      // On descend doucement jusqu'aux produits (seulement vers le bas)
+      var cible = app.querySelector('.avis') || app.querySelector('.categorie');
+      if (cible) {
+        var y = cible.getBoundingClientRect().top + window.scrollY - 12;
+        var doux = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if (y > window.scrollY + 20) setTimeout(function () { window.scrollTo({ top: y, behavior: doux ? 'smooth' : 'auto' }); }, 150);
+      }
+      return;
     }
     if (t.dataset.pdf !== undefined) { telechargerPdf(t); return; }
     if (t.id === 'valider') { valider(); return; }
