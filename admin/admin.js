@@ -530,6 +530,12 @@
         });
         h += '</tbody></table><p style="font-size:12px;color:var(--texte-doux);margin-top:10px">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
       }
+      // Coordonnées de JP, bien visibles en bas du bon (aussi à l'impression)
+      h += '<div style="margin-top:18px;border:2px solid #0B6E78;border-radius:14px;padding:14px 16px;background:#F3FAFA;page-break-inside:avoid">' +
+        '<p style="margin:0 0 10px;font-size:15px">Si vous avez des soucis avec cette commande, voici mes coordonnées :<br>' +
+        '<b style="font-size:17px">M. THIOU Jean-Paul</b> au <b style="font-size:17px;white-space:nowrap">06 83 87 31 69</b></p>' +
+        '<p style="margin:0 0 10px;font-size:15px"><b>Adresse de livraison :</b><br>THIOU Jean-Paul<br>5 rue du Pré Brochet, lieu-dit « Limon »<br>86120 Curçay-sur-Dive</p>' +
+        '<p style="margin:0;font-size:16px;font-weight:700">Amitié,<br>JP THIOU</p></div>';
       h += '</div>';
       app.innerHTML = h;
       var b = document.getElementById('imprimer'); if (b) b.onclick = function () { window.print(); };
