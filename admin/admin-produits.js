@@ -92,12 +92,15 @@
       }
 
       function dessiner() {
-        var h = '<section class="carte"><h1 style="font-size:22px">Produits et prix</h1>' +
+        var h = (cid ? '<div style="margin:16px 16px 0"><button class="bouton" type="button" data-pdf style="width:100%;font-size:18px;padding:16px;display:flex;align-items:center;justify-content:center;gap:10px">' +
+            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>' +
+            'Liste Produits (PDF)</button></div>' : '') +
+          '<section class="carte"><h1 style="font-size:22px">Produits et prix</h1>' +
           (campagne ? '<p style="margin:0;color:var(--texte-doux);font-size:14px">Prix de la campagne « ' + esc(campagne.nom) + ' ». Les commandes déjà passées gardent leur prix.</p>'
                     : '<p style="margin:0">Aucune campagne en cours : vous pouvez modifier les fiches des produits, les prix se règlent dans une campagne.</p>') +
           '<div class="actions" style="margin:12px 0 0"><button class="bouton second" type="button" data-nouveau>' + (nouveauOuvert ? 'Fermer' : '+ Nouveau produit') + '</button>' +
-            (cid ? '<button class="bouton second" type="button" data-pdf>Créer le PDF de la liste pour les gourmets</button>' : '') + '</div>' +
-            (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + (campagne.pdf_url ? 'PDF joint au mail d’ouverture : <a href="' + esc(campagne.pdf_url) + '" target="_blank" rel="noopener">voir le PDF</a>. Recréez-le après avoir changé des produits ou des prix.' : 'Créez le PDF avant l’ouverture : il sera joint au mail d’ouverture envoyé aux gourmets.') + '</p>' : '');
+            '</div>' +
+            (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + (campagne.pdf_url ? 'Le bouton « Liste Produits » télécharge la liste à jour, et c’est cette dernière version qui est jointe au mail d’ouverture.' : 'Touchez « Liste Produits » avant l’ouverture : la liste sera jointe au mail d’ouverture envoyé aux gourmets.') + '</p>' : '');
         if (nouveauOuvert) {
           h += '<div style="margin-top:12px">' + formFiche(null, 'nv-') +
             (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne en cours</label>' : '') +
@@ -237,6 +240,9 @@
             html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' }, pagebreak: { mode: ['css', 'legacy'] } })
             .from(boite.firstChild).outputPdf('blob');
         }).then(function (blob) {
+          // Téléchargement immédiat sur l'appareil
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Liste des fromages.pdf';
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
           // (l'appel à la base renouvelle la connexion si besoin, avant l'envoi du fichier)
           return api('campagnes?id=eq.' + cid + '&select=id').then(function () {
             try { sess = JSON.parse(localStorage.getItem('fjp_admin') || '{}'); } catch (e) {}
@@ -248,8 +254,7 @@
           if (!r.ok) return r.text().then(function (t) { throw new Error('envoi du PDF refusé (' + r.status + ') ' + t.slice(0, 80)); });
           var url = C.supabaseUrl + '/storage/v1/object/public/documents/' + nom + '?v=' + Date.now();
           return api('campagnes?id=eq.' + cid, { method: 'PATCH', body: { pdf_url: url } }).then(function () {
-            campagne.pdf_url = url; dessiner(); toast('PDF créé : il sera joint au mail d’ouverture');
-            window.open(url, '_blank');
+            campagne.pdf_url = url; dessiner(); toast('Liste téléchargée (et jointe au mail d’ouverture)');
           });
         }).catch(function (e) { toast('Erreur : ' + esc(e.message)); dessiner(); })
           .then(function () { boite.remove(); });
@@ -261,7 +266,7 @@
         if (!b) return;
         var d = b.dataset;
         if (d.nouveau !== undefined) { nouveauOuvert = !nouveauOuvert; dessiner(); return; }
-        if (d.pdf !== undefined) { b.disabled = true; b.textContent = 'Création du PDF…'; creerPdf().then(function () { b.disabled = false; }); return; }
+        if (d.pdf !== undefined) { b.disabled = true; b.lastChild.textContent = 'Préparation du PDF…'; creerPdf(); return; }
         if (d.creer !== undefined) {
           var fiche = lireFiche('nv-');
           if (!fiche.nom) { toast('Indiquez le nom du produit.'); return; }
