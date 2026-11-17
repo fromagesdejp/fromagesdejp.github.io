@@ -95,7 +95,9 @@
         var h = '<section class="carte"><h1 style="font-size:22px">Produits et prix</h1>' +
           (campagne ? '<p style="margin:0;color:var(--texte-doux);font-size:14px">Prix de la campagne « ' + esc(campagne.nom) + ' ». Les commandes déjà passées gardent leur prix.</p>'
                     : '<p style="margin:0">Aucune campagne en cours : vous pouvez modifier les fiches des produits, les prix se règlent dans une campagne.</p>') +
-          '<div class="actions" style="margin:12px 0 0"><button class="bouton second" type="button" data-nouveau>' + (nouveauOuvert ? 'Fermer' : '+ Nouveau produit') + '</button></div>';
+          '<div class="actions" style="margin:12px 0 0"><button class="bouton second" type="button" data-nouveau>' + (nouveauOuvert ? 'Fermer' : '+ Nouveau produit') + '</button>' +
+            (cid ? '<button class="bouton second" type="button" data-pdf>Créer le PDF de la liste pour les gourmets</button>' : '') + '</div>' +
+            (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + (campagne.pdf_url ? 'PDF joint au mail d’ouverture : <a href="' + esc(campagne.pdf_url) + '" target="_blank" rel="noopener">voir le PDF</a>. Recréez-le après avoir changé des produits ou des prix.' : 'Créez le PDF avant l’ouverture : il sera joint au mail d’ouverture envoyé aux gourmets.') + '</p>' : '');
         if (nouveauOuvert) {
           h += '<div style="margin-top:12px">' + formFiche(null, 'nv-') +
             (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne en cours</label>' : '') +
@@ -176,12 +178,90 @@
           prix_kg: val(p + 'pkg') ? pkg : null, prix_piece: mode === 'piece' && val(p + 'ppc') ? ppc : null };
       }
 
+      // ---------- PDF de la liste des produits (joint au mail d'ouverture) ----------
+      var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache' };
+      function dateFr(iso, heure) {
+        if (!iso) return '';
+        var o = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' };
+        if (heure) { o.hour = 'numeric'; o.minute = '2-digit'; }
+        return new Intl.DateTimeFormat('fr-FR', o).format(new Date(iso.length === 10 ? iso + 'T12:00:00Z' : iso));
+      }
+      function htmlPdf() {
+        var h = '<div style="font-family:Nunito,Arial,sans-serif;color:#12313F;width:720px;padding:24px;background:#fff">' +
+          '<div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #F5A623;padding-bottom:12px">' +
+          '<img src="../images/logo.png" style="width:56px;height:56px"><div><div style="font-size:24px;font-weight:800;color:#0B6E78">Les Fromages Jean-Paul</div>' +
+          '<div style="font-size:15px">' + esc(campagne.nom) + '</div></div></div>' +
+          '<p style="font-size:14px;margin:12px 0">Fin de commande : <b>' + esc(dateFr(campagne.cloture, true)) + '</b>' + (campagne.livraison ? ' · Livraison : <b>' + esc(dateFr(campagne.livraison)) + '</b>' : '') + '<br>' +
+          'Prix transport compris. Fromages à la coupe : prix estimé, calculé au poids réel à l’arrivée. Sous réserve de disponibilité.</p>';
+        cats.forEach(function (c) {
+          var ps = produits.filter(function (p) { var o = offreDe[p.id]; return p.categorie_id === c.id && p.actif && o && !o.retire && o.portions.length; });
+          if (!ps.length) return;
+          h += '<div style="font-size:18px;font-weight:800;color:#0B6E78;margin:16px 0 6px;page-break-after:avoid">' + esc(c.nom) + '</div>';
+          ps.forEach(function (pr) {
+            var o = offreDe[pr.id];
+            var img = PICTOS[pr.lait] ? '../images/lait-' + PICTOS[pr.lait] + '.png' : '';
+            var infos = [pr.description, pr.aop, pr.lait_cru === true ? 'lait cru' : (pr.lait_cru === false ? 'lait pasteurisé' : '')].filter(Boolean).join(' · ');
+            h += '<div style="display:flex;gap:12px;border:1px solid #E2E8EA;border-radius:12px;padding:10px;margin-bottom:8px;page-break-inside:avoid">' +
+              (img ? '<img src="' + img + '" style="width:48px;height:48px;border-radius:10px;background:#E3F4F5">' : '<div style="width:48px"></div>') +
+              '<div style="flex-grow:1"><div style="font-weight:800;font-size:15px">' + esc(pr.nom) + (pr.si_disponible ? ' <span style="font-weight:600;font-size:12px;color:#8A5A00">(si disponible)</span>' : '') + '</div>' +
+              (infos ? '<div style="font-size:12px;color:#3D5560">' + esc(infos) + '</div>' : '') +
+              '<table style="width:100%;font-size:13px;margin-top:4px;border-collapse:collapse">' +
+              o.portions.map(function (po) {
+                return '<tr><td style="padding:2px 0">' + esc(po.libelle) + (po.mode === 'coupe' && po.prix_kg ? ' <span style="color:#3D5560">(' + esc(prix(po.prix_kg)) + ' le kg)</span>' : '') + '</td>' +
+                  '<td style="text-align:right;font-weight:700;white-space:nowrap">' + (po.mode === 'coupe' ? '≈ ' : '') + esc(prix(prixFinal(pr, po))) + '</td></tr>';
+              }).join('') + '</table></div></div>';
+          });
+        });
+        h += '<p style="font-size:12px;color:#3D5560;margin-top:14px">Paiement par virement, quand Jean-Paul vous aura envoyé le montant exact.</p></div>';
+        return h;
+      }
+      function chargerLib() {
+        if (window.html2pdf) return Promise.resolve();
+        return new Promise(function (ok, ko) {
+          var sc = document.createElement('script');
+          sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          sc.onload = ok; sc.onerror = function () { ko(new Error('outil PDF introuvable (Internet ?)')); };
+          document.head.appendChild(sc);
+        });
+      }
+      function creerPdf() {
+        var C = window.CONFIG, sess = {};
+        try { sess = JSON.parse(localStorage.getItem('fjp_admin') || '{}'); } catch (e) {}
+        var nom = 'liste-' + cid + '.pdf';
+        var boite = document.createElement('div');
+        boite.style.cssText = 'position:fixed;left:-10000px;top:0';
+        boite.innerHTML = htmlPdf();
+        document.body.appendChild(boite);
+        return chargerLib().then(function () {
+          return window.html2pdf().set({ margin: 8, filename: 'Liste des fromages.pdf', image: { type: 'jpeg', quality: 0.9 },
+            html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' }, pagebreak: { mode: ['css', 'legacy'] } })
+            .from(boite.firstChild).outputPdf('blob');
+        }).then(function (blob) {
+          // (l'appel à la base renouvelle la connexion si besoin, avant l'envoi du fichier)
+          return api('campagnes?id=eq.' + cid + '&select=id').then(function () {
+            try { sess = JSON.parse(localStorage.getItem('fjp_admin') || '{}'); } catch (e) {}
+            return fetch(C.supabaseUrl + '/storage/v1/object/documents/' + nom, {
+              method: 'POST', headers: { 'apikey': C.supabaseKey, 'Authorization': 'Bearer ' + sess.access_token, 'Content-Type': 'application/pdf', 'x-upsert': 'true' }, body: blob
+            });
+          });
+        }).then(function (r) {
+          if (!r.ok) return r.text().then(function (t) { throw new Error('envoi du PDF refusé (' + r.status + ') ' + t.slice(0, 80)); });
+          var url = C.supabaseUrl + '/storage/v1/object/public/documents/' + nom + '?v=' + Date.now();
+          return api('campagnes?id=eq.' + cid, { method: 'PATCH', body: { pdf_url: url } }).then(function () {
+            campagne.pdf_url = url; dessiner(); toast('PDF créé : il sera joint au mail d’ouverture');
+            window.open(url, '_blank');
+          });
+        }).catch(function (e) { toast('Erreur : ' + esc(e.message)); dessiner(); })
+          .then(function () { boite.remove(); });
+      }
+
       dessiner();
       app.onclick = function (e) {
         var b = e.target.closest('button');
         if (!b) return;
         var d = b.dataset;
         if (d.nouveau !== undefined) { nouveauOuvert = !nouveauOuvert; dessiner(); return; }
+        if (d.pdf !== undefined) { b.disabled = true; b.textContent = 'Création du PDF…'; creerPdf().then(function () { b.disabled = false; }); return; }
         if (d.creer !== undefined) {
           var fiche = lireFiche('nv-');
           if (!fiche.nom) { toast('Indiquez le nom du produit.'); return; }
