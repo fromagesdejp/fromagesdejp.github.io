@@ -291,7 +291,7 @@
           h += '<div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(nomG(g)) + '</b><small>' + esc(c.reference || '') + ' · ' + esc(nomPoint(c.point_id)) + '</small></span>' +
             '<span class="mt">' + prix(c.montant) + '</span>' +
             '<span style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;width:100%;min-width:0;margin-top:4px">' +
-            '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement</button>' +
+            '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement reçu</button>' +
             '<button class="btn clair" type="button" data-relancer="' + c.id + '">Relancer</button></span></div>';
         });
         h += '</div>';
