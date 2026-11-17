@@ -527,7 +527,7 @@
             h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
           });
         });
-        h += '</tbody></table><p style="font-size:12.5px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4;letter-spacing:-.1px">Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p><p style="font-size:16px;font-weight:700;color:#C62828;margin-top:6px;line-height:1.4">Merci d’indiquer les poids et le prix SVP</p>';
+        h += '</tbody></table><p class="une-ligne" style="font-size:15.5px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4">Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p><p style="font-size:16px;font-weight:700;color:#C62828;margin-top:6px;line-height:1.4">Merci d’indiquer les poids et le prix SVP</p>';
       }
       // Coordonnées de JP, bien visibles en bas du bon (aussi à l'impression)
       h += '<div style="margin-top:18px;border:2px solid #0B6E78;border-radius:14px;padding:14px 16px;background:#F3FAFA;page-break-inside:avoid">' +

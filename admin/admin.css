@@ -41,6 +41,7 @@ table.bon td.n { text-align: right; font-weight: 800; white-space: nowrap; }
   .entete, .onglets, .non-imprime, .toast { display: none !important; }
   body { background: #fff; }
   .carte { box-shadow: none; margin: 0; padding: 0; }
+  .une-ligne { white-space: nowrap; }
 }
 /* Appli installée (iPhone : barre d'état au-dessus de l'en-tête) */
 .entete { padding-top: max(14px, env(safe-area-inset-top)); padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
