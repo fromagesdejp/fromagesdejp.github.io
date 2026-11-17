@@ -37,7 +37,12 @@
   function vueCampagnes() {
     var F = window.FJP, api = F.api, esc = F.esc, toast = F.toast, app = F.app;
 
-    return api('campagnes?select=*,points_livraison(*),commandes(count)&order=cloture.desc').then(function (camps) {
+    return Promise.all([
+      api('campagnes?select=*,points_livraison(*),commandes(count)&order=cloture.desc'),
+      api('gourmets?select=id,prenom,nom&actif=eq.true&order=nom,prenom')
+    ]).then(function (rr) {
+      var camps = rr[0], gourmets = rr[1];
+      var choixOuvert = false;
       camps.forEach(function (c) { c.points_livraison.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); });
       var courante = F.campagne();
       if (!choisie || !camps.some(function (c) { return c.id === choisie; })) choisie = courante ? courante.id : (camps[0] && camps[0].id);
@@ -90,6 +95,19 @@
         });
         h += '<button class="btn clair" type="button" data-ajout-pt="' + c.id + '">+ Ajouter un point de livraison</button></section>';
 
+        // Destinataires des mails (ouverture et rappels)
+        var exclus = c.exclus || [];
+        var nbInvites = gourmets.filter(function (g) { return exclus.indexOf(g.id) < 0; }).length;
+        var tous = nbInvites === gourmets.length;
+        h += '<section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Gourmets qui reçoivent les mails</h2>' +
+          '<p style="margin:0 0 10px;font-size:14px;color:var(--texte-doux)">Mail d’ouverture et rappels de cette campagne : <b style="color:var(--texte)">' + nbInvites + ' gourmet' + (nbInvites > 1 ? 's' : '') + ' sur ' + gourmets.length + '</b>.</p>' +
+          '<label style="display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:8px 0;cursor:pointer"><input type="checkbox" id="dest-tous" style="width:22px;height:22px"' + (tous ? ' checked' : '') + '> Envoyer à tout le monde</label>' +
+          '<details id="dest-choix"' + (choixOuvert || !tous ? ' open' : '') + '><summary style="cursor:pointer;color:var(--canard);font-weight:700;padding:6px 0">Choisir les gourmets (décocher ceux qui ne doivent pas recevoir les mails)</summary>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px;margin-top:6px">' +
+          gourmets.map(function (g) {
+            return '<label style="display:flex;gap:8px;align-items:center;padding:6px 0;cursor:pointer"><input type="checkbox" data-dest="' + g.id + '" style="width:20px;height:20px"' + (exclus.indexOf(g.id) < 0 ? ' checked' : '') + '> ' + esc(g.prenom + ' ' + String(g.nom || '').toUpperCase()) + '</label>';
+          }).join('') + '</div></details></section>';
+
         // Statut
         h += '<section class="carte"><h2 style="margin:0 0 10px;font-size:18px">Statut</h2><div class="actions" style="margin:0">';
         if (c.statut === 'preparation') h += '<button class="bouton" type="button" data-statut="ouverte">Ouvrir maintenant</button>';
@@ -113,6 +131,23 @@
       }
 
       dessiner();
+      // Cocher / décocher les destinataires : enregistré tout de suite
+      app.onchange = function (e) {
+        var c3 = camps.filter(function (y) { return y.id === choisie; })[0];
+        if (!c3) return;
+        var nouv = null;
+        if (e.target.id === 'dest-tous') {
+          nouv = e.target.checked ? [] : gourmets.map(function (g) { return g.id; });
+          choixOuvert = !e.target.checked;
+        } else if (e.target.dataset && e.target.dataset.dest) {
+          nouv = Array.prototype.filter.call(app.querySelectorAll('[data-dest]'), function (x) { return !x.checked; }).map(function (x) { return x.dataset.dest; });
+          choixOuvert = true;
+        }
+        if (!nouv) return;
+        api('campagnes?id=eq.' + c3.id, { method: 'PATCH', body: { exclus: nouv } }).then(function () {
+          c3.exclus = nouv; var y = window.scrollY; dessiner(); window.scrollTo(0, y); toast('Destinataires enregistrés');
+        }).catch(echec);
+      };
       app.onclick = function (e) {
         var b = e.target.closest('button'); if (!b) return;
         var d = b.dataset;
