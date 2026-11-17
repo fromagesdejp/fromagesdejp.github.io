@@ -528,7 +528,7 @@
               (p.coupe ? '<tr><td colspan="3" style="color:#C62828;font-weight:700;padding-top:0">Merci d’indiquer les poids et le prix SVP</td></tr>' : '');
           });
         });
-        h += '</tbody></table><p style="font-size:12px;color:var(--texte-doux);margin-top:10px">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
+        h += '</tbody></table><p style="font-size:16px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
       }
       // Coordonnées de JP, bien visibles en bas du bon (aussi à l'impression)
       h += '<div style="margin-top:18px;border:2px solid #0B6E78;border-radius:14px;padding:14px 16px;background:#F3FAFA;page-break-inside:avoid">' +
