@@ -180,7 +180,7 @@
         }
         h += '<div class="etiq">À écrire dans le libellé du virement</div><div class="ref"><div class="val" id="ref">' + esc(dc.reference) + '</div>' +
           '<button type="button" class="petit-bouton" id="copier">Copier</button></div>' +
-          '<p style="margin:10px 0 0;font-size:13px;color:var(--texte-doux)">Vous pouvez aussi payer en espèces ou par chèque à la livraison.</p>';
+          '';
       }
       h += '</section>';
     }
@@ -334,7 +334,7 @@
 
     h += '<section class="carte virement"><h2>' + (cmd.paye ? 'Paiement reçu, merci !' : 'Rien à payer pour l’instant') + '</h2>';
     if (!cmd.paye) {
-      h += '<p style="margin:0">À l’arrivée des fromages, Jean-Paul pèse chaque morceau à la coupe et vous envoie par mail le <b>montant exact</b>, avec ses coordonnées pour le virement. Vous pourrez aussi payer en espèces ou par chèque à la livraison.</p>';
+      h += '<p style="margin:0">À l’arrivée des fromages, Jean-Paul pèse chaque morceau à la coupe et vous envoie par mail le <b>montant exact</b>, avec ses coordonnées pour le virement.</p>';
     }
     h += '</section>';
 

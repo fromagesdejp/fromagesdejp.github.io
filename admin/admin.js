@@ -292,8 +292,6 @@
             '<span class="mt">' + prix(c.montant) + '</span>' +
             '<span style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;width:100%;min-width:0;margin-top:4px">' +
             '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement</button>' +
-            '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="especes">Espèces</button>' +
-            '<button class="btn clair" type="button" data-payer="' + c.id + '" data-moyen="cheque">Chèque</button>' +
             '<button class="btn clair" type="button" data-relancer="' + c.id + '">Relancer</button></span></div>';
         });
         h += '</div>';
@@ -526,7 +524,8 @@
         cats.forEach(function (c) {
           h += '<tr class="cat"><td colspan="3">' + esc(c.nom) + '</td></tr>';
           c.produits.forEach(function (p) {
-            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
+            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>' +
+              (p.coupe ? '<tr><td colspan="3" style="color:#C62828;font-weight:700;padding-top:0">Merci d’indiquer les poids et le prix SVP</td></tr>' : '');
           });
         });
         h += '</tbody></table><p style="font-size:12px;color:var(--texte-doux);margin-top:10px">Quantités regroupées pour toutes les commandes. Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p>';
