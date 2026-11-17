@@ -39,7 +39,7 @@
   }
   function poids(g) { return g >= 1000 ? (g / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' kg' : g + ' g'; }
   function poidsPrecis(g) { return g >= 1000 ? (g / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g'; }
-  var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache' };
+  var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache', aucun: 'plat' };
 
   // ---------- Appels à la base ----------
   function rpc(nom, params) {

@@ -179,7 +179,7 @@
       }
 
       // ---------- PDF de la liste des produits (joint au mail d'ouverture) ----------
-      var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache' };
+      var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache', aucun: 'plat' };
       function dateFr(iso, heure) {
         if (!iso) return '';
         var o = { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' };
