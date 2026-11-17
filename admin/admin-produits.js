@@ -100,7 +100,7 @@
                     : '<p style="margin:0">Aucune campagne en cours : vous pouvez modifier les fiches des produits, les prix se règlent dans une campagne.</p>') +
           '<div class="actions" style="margin:12px 0 0"><button class="bouton second" type="button" data-nouveau>' + (nouveauOuvert ? 'Fermer' : '+ Nouveau produit') + '</button>' +
             '</div>' +
-            (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + (campagne.pdf_url ? 'Le bouton « Liste Produits » télécharge la liste à jour, et c’est cette dernière version qui est jointe au mail d’ouverture.' : 'Touchez « Liste Produits » avant l’ouverture : la liste sera jointe au mail d’ouverture envoyé aux gourmets.') + '</p>' : '');
+            (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + 'La liste PDF se met à jour toute seule à chaque changement de produit ou de prix : c’est elle qui est jointe aux mails, et les gourmets peuvent la télécharger depuis leur bon de commande. Le bouton « Liste Produits » la télécharge sur votre téléphone.' + '</p>' : '');
         if (nouveauOuvert) {
           h += '<div style="margin-top:12px">' + formFiche(null, 'nv-') +
             (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne en cours</label>' : '') +
@@ -164,6 +164,7 @@
           produits = r2[0]; offres = r2[1]; offreDe = {};
           offres.forEach(function (o) { o.portions.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); offreDe[o.produit_id] = o; });
           dessiner(); if (msg) toast(msg);
+          pdfAuto();
         });
       }
       function echec(e) {
@@ -227,7 +228,8 @@
           document.head.appendChild(sc);
         });
       }
-      function creerPdf() {
+      // silencieux = mise à jour automatique : pas de téléchargement, pas de message, l'écran ne bouge pas
+      function creerPdf(silencieux) {
         var C = window.CONFIG, sess = {};
         try { sess = JSON.parse(localStorage.getItem('fjp_admin') || '{}'); } catch (e) {}
         var nom = 'liste-' + cid + '.pdf';
@@ -240,9 +242,11 @@
             html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' }, pagebreak: { mode: ['css', 'legacy'] } })
             .from(boite.firstChild).outputPdf('blob');
         }).then(function (blob) {
-          // Téléchargement immédiat sur l'appareil
+          // Téléchargement immédiat sur l'appareil (sauf mise à jour automatique)
+          if (!silencieux) {
           var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Liste des fromages.pdf';
           document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+          }
           // (l'appel à la base renouvelle la connexion si besoin, avant l'envoi du fichier)
           return api('campagnes?id=eq.' + cid + '&select=id').then(function () {
             try { sess = JSON.parse(localStorage.getItem('fjp_admin') || '{}'); } catch (e) {}
@@ -254,13 +258,35 @@
           if (!r.ok) return r.text().then(function (t) { throw new Error('envoi du PDF refusé (' + r.status + ') ' + t.slice(0, 80)); });
           var url = C.supabaseUrl + '/storage/v1/object/public/documents/' + nom + '?v=' + Date.now();
           return api('campagnes?id=eq.' + cid, { method: 'PATCH', body: { pdf_url: url } }).then(function () {
-            campagne.pdf_url = url; dessiner(); toast('Liste téléchargée (et jointe au mail d’ouverture)');
+            campagne.pdf_url = url;
+            try { localStorage.setItem('fjp_pdf_' + cid, empreinte(htmlPdf())); } catch (e) {}
+            if (!silencieux) { dessiner(); toast('Liste téléchargée (et jointe au mail d’ouverture)'); }
           });
-        }).catch(function (e) { toast('Erreur : ' + esc(e.message)); dessiner(); })
+        }).catch(function (e) { if (!silencieux) { toast('Erreur : ' + esc(e.message)); dessiner(); } })
           .then(function () { boite.remove(); });
       }
 
+      // PDF automatique : dès que la liste (produits, portions, prix) change, la version jointe aux mails
+      // est refaite en arrière-plan, pour les campagnes en préparation ou ouvertes.
+      function empreinte(t) {
+        var h = 0; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+        return String(h);
+      }
+      var minuteurPdf = null, pdfEnCours = null;
+      function pdfAuto() {
+        if (!cid || !campagne || (campagne.statut !== 'preparation' && campagne.statut !== 'ouverte')) return;
+        clearTimeout(minuteurPdf);
+        minuteurPdf = setTimeout(function () {
+          if (pdfEnCours) { pdfEnCours.then(pdfAuto); return; }
+          var dernier = null;
+          try { dernier = localStorage.getItem('fjp_pdf_' + cid); } catch (e) {}
+          if (campagne.pdf_url && dernier === empreinte(htmlPdf())) return;
+          pdfEnCours = creerPdf(true).then(function () { pdfEnCours = null; });
+        }, 3000);
+      }
+
       dessiner();
+      pdfAuto();
       app.onclick = function (e) {
         var b = e.target.closest('button');
         if (!b) return;

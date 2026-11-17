@@ -216,6 +216,9 @@
     h += '<section class="carte"><h1>' + esc(c.nom) + '</h1>';
     if (c.message) h += '<p class="message">' + esc(c.message) + '</p>';
     if (d.reglages && d.reglages.signature) h += '<p class="message">' + esc(d.reglages.signature) + '</p>';
+    h += '<button type="button" class="bouton second pdf" data-pdf>' +
+      '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg>' +
+      '<span>Liste des produits (PDF)</span></button>';
     h += '<div class="dates">' +
       '<div class="date fin"><span class="etiq">Fin de commande</span><b>' + esc(jourLong(fin)) + ', ' + esc(heure(fin)) + '</b><span>' + esc(resteAvant(fin)) + '</span></div>' +
       '<div class="date livr"><span class="etiq">Livraison</span><b>' + esc(dateSimple(c.livraison)) + '</b><span>Merci de respecter l’horaire</span></div>' +
@@ -380,6 +383,62 @@
       });
   }
 
+  // ---------- Liste des produits en PDF (créée à la demande, toujours à jour) ----------
+  function htmlPdf() {
+    var c = data.campagne, fin = new Date(c.cloture);
+    var h = '<div style="font-family:Nunito,Arial,sans-serif;color:#12313F;width:720px;padding:24px;background:#fff">' +
+      '<div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #F5A623;padding-bottom:12px">' +
+      '<img src="images/logo.png" style="width:56px;height:56px"><div><div style="font-size:24px;font-weight:800;color:#0B6E78">Les Fromages Jean-Paul</div>' +
+      '<div style="font-size:15px">' + esc(c.nom) + '</div></div></div>' +
+      '<p style="font-size:14px;margin:12px 0">Fin de commande : <b>' + esc(jourLong(fin) + ', ' + heure(fin)) + '</b>' +
+      (c.livraison ? ' · Livraison : <b>' + esc(dateSimple(c.livraison)) + '</b>' : '') + '<br>' +
+      'Prix transport compris. Fromages à la coupe : prix estimé, calculé au poids réel à l’arrivée. Sous réserve de disponibilité.</p>';
+    data.categories.forEach(function (cat) {
+      h += '<div style="font-size:18px;font-weight:800;color:#0B6E78;margin:16px 0 6px;page-break-after:avoid">' + esc(cat.nom) + '</div>';
+      cat.produits.forEach(function (pr) {
+        var img = PICTOS[pr.lait] ? 'images/lait-' + PICTOS[pr.lait] + '.png' : '';
+        var infos = [pr.description, pr.aop, pr.lait_cru === true ? 'lait cru' : (pr.lait_cru === false ? 'lait pasteurisé' : '')].filter(Boolean).join(' · ');
+        h += '<div style="display:flex;gap:12px;border:1px solid #E2E8EA;border-radius:12px;padding:10px;margin-bottom:8px;page-break-inside:avoid">' +
+          (img ? '<img src="' + img + '" style="width:48px;height:48px;border-radius:10px;background:#E3F4F5">' : '<div style="width:48px"></div>') +
+          '<div style="flex-grow:1"><div style="font-weight:800;font-size:15px">' + esc(pr.nom) + (pr.si_disponible ? ' <span style="font-weight:600;font-size:12px;color:#8A5A00">(si disponible)</span>' : '') + '</div>' +
+          (infos ? '<div style="font-size:12px;color:#3D5560">' + esc(infos) + '</div>' : '') +
+          '<table style="width:100%;font-size:13px;margin-top:4px;border-collapse:collapse">' +
+          (pr.portions || []).map(function (po) {
+            return '<tr><td style="padding:2px 0">' + esc(po.libelle) + (po.mode === 'coupe' && po.prix_kg ? ' <span style="color:#3D5560">(' + esc(prix(po.prix_kg)) + ' le kg)</span>' : '') + '</td>' +
+              '<td style="text-align:right;font-weight:700;white-space:nowrap">' + (po.mode === 'coupe' ? '≈ ' : '') + esc(prix(po.prix)) + '</td></tr>';
+          }).join('') + '</table></div></div>';
+      });
+    });
+    return h + '<p style="font-size:12px;color:#3D5560;margin-top:14px">Paiement par virement, quand Jean-Paul vous aura envoyé le montant exact.</p></div>';
+  }
+  function chargerOutilPdf() {
+    if (window.html2pdf) return Promise.resolve();
+    return new Promise(function (ok, ko) {
+      var sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      sc.onload = ok; sc.onerror = function () { ko(new Error('outil PDF')); };
+      document.head.appendChild(sc);
+    });
+  }
+  function telechargerPdf(bouton) {
+    var texte = bouton.querySelector('span');
+    bouton.disabled = true; texte.textContent = 'Préparation du PDF…';
+    var boite = document.createElement('div');
+    boite.style.cssText = 'position:fixed;left:-10000px;top:0';
+    boite.innerHTML = htmlPdf();
+    document.body.appendChild(boite);
+    chargerOutilPdf().then(function () {
+      return window.html2pdf().set({ margin: 8, image: { type: 'jpeg', quality: 0.9 },
+        html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' }, pagebreak: { mode: ['css', 'legacy'] } })
+        .from(boite.firstChild).outputPdf('blob');
+    }).then(function (blob) {
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Liste des fromages.pdf';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 10000);
+    }).catch(function () {
+      window.alert('La liste n’a pas pu être préparée. Vérifiez votre connexion Internet et réessayez.');
+    }).then(function () { boite.remove(); bouton.disabled = false; texte.textContent = 'Liste des produits (PDF)'; });
+  }
+
   app.addEventListener('click', function (e) {
     var t = e.target.closest('button');
     if (!t) return;
@@ -392,6 +451,7 @@
       if (alerte && alerte.type === 'attention') alerte = null;
       majPied(); return;
     }
+    if (t.dataset.pdf !== undefined) { telechargerPdf(t); return; }
     if (t.id === 'valider') { valider(); return; }
     if (t.id === 'modifier') { vue = 'bon'; alerte = null; afficher(); window.scrollTo(0, 0); return; }
     if (t.id === 'copier') {

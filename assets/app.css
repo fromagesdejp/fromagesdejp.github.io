@@ -116,3 +116,6 @@ main { max-width: 640px; margin: 0 auto; padding-bottom: 24px; }
 .petit-bouton { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--canard); background: #fff; color: var(--canard);
   font-size: 15px; font-weight: 800; cursor: pointer; }
 .historique li { margin-bottom: 4px; }
+
+/* Bouton « Liste des produits (PDF) » en haut du bon */
+.bouton.pdf { margin: 12px 0 4px; }
