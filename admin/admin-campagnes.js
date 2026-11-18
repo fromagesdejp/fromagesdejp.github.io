@@ -112,7 +112,17 @@
             '<div style="display:flex;gap:8px"><button class="btn" type="button" data-enr-pt="' + p.id + '">Enregistrer</button>' +
             '<button class="btn rouge" type="button" data-sup-pt="' + p.id + '">Supprimer</button></div></div>';
         });
-        h += '<button class="btn clair" type="button" data-ajout-pt="' + c.id + '">+ Ajouter un point de livraison</button></section>';
+        h += '<button class="btn clair" type="button" data-ajout-pt="' + c.id + '">+ Ajouter un point de livraison</button>';
+        // Reprendre les points d'une autre campagne (ex. Joué-lès-Tours et domicile de JP)
+        var autresPts = camps.filter(function (x) { return x.id !== c.id && x.points_livraison.length; });
+        if (autresPts.length) {
+          h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #EEF1F2"><div class="champ"><label for="cp-source">Reprendre les points de livraison d’une autre campagne</label><select id="cp-source">' +
+            autresPts.map(function (x) {
+              return '<option value="' + x.id + '">' + (plusieursFermes ? esc(nomFerme(x.ferme_id)) + ' — ' : '') + esc(x.nom) + ' : ' + esc(x.points_livraison.map(function (pt) { return pt.ville; }).join(', ')) + '</option>';
+            }).join('') + '</select></div>' +
+            '<button class="btn" type="button" data-copier-pts="' + c.id + '">Reprendre ces points</button></div>';
+        }
+        h += '</section>';
 
         // Destinataires des mails (ouverture et rappels)
         var exclus = c.exclus || [];
@@ -205,6 +215,20 @@
         if (d.supPt) {
           if (!window.confirm('Supprimer ce point de livraison ?')) return;
           api('points_livraison?id=eq.' + d.supPt, { method: 'DELETE' }).then(function () { return recharger('Point supprimé'); }).catch(echec);
+          return;
+        }
+        if (d.copierPts) {
+          var cc = camps.filter(function (y) { return y.id === Number(d.copierPts); })[0];
+          var src = camps.filter(function (y) { return y.id === Number(val('cp-source')); })[0];
+          if (!src) return;
+          var deja = {}; cc.points_livraison.forEach(function (pt) { deja[(pt.ville + '|' + (pt.lieu || '')).toLowerCase()] = true; });
+          var nouveaux = src.points_livraison.filter(function (pt) { return !deja[(pt.ville + '|' + (pt.lieu || '')).toLowerCase()]; })
+            .map(function (pt, i) { return { campagne_id: cc.id, ville: pt.ville, lieu: pt.lieu, heure: pt.heure, ordre: cc.points_livraison.length + i + 1 }; });
+          if (!nouveaux.length) { toast('Ces points de livraison sont déjà dans la campagne.'); return; }
+          b.disabled = true;
+          api('points_livraison', { method: 'POST', body: nouveaux })
+            .then(function () { return recharger(nouveaux.length + ' point' + (nouveaux.length > 1 ? 's' : '') + ' de livraison repris : vérifiez les heures.'); })
+            .catch(function (er) { b.disabled = false; echec(er); });
           return;
         }
         if (d.ajoutPt) {
