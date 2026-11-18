@@ -286,6 +286,9 @@
       '<div class="date fin"><span class="etiq">Fin de commande</span><b>' + esc(jourLong(fin)) + ', ' + esc(heure(fin)) + '</b><span>' + esc(resteAvant(fin)) + '</span></div>' +
       '<div class="date livr"><span class="etiq">Livraison</span><b>' + esc(dateSimple(c.livraison)) + '</b><span>Merci de respecter l’horaire</span></div>' +
       '</div>';
+    if (!d.points.length) {
+      h += '<div class="bandeau attention" style="margin:12px 0 0">Le lieu de livraison n’est pas encore indiqué : vous pourrez valider votre commande dès que Jean-Paul l’aura ajouté.</div>';
+    }
     if (d.points.length) {
       h += '<div class="points-titre" id="titre-points">Mon point de livraison</div><div role="group" aria-labelledby="titre-points">';
       d.points.forEach(function (p) {
@@ -372,8 +375,9 @@
     if (!nb) return;
     nb.textContent = t.articles ? t.articles + ' article' + (t.articles > 1 ? 's' : '') + ' · total estimé' : 'Aucun article';
     tot.textContent = prix(t.montant);
-    b.disabled = envoiEnCours || t.articles === 0 || (data.commande && !modifie());
-    b.textContent = envoiEnCours ? 'Envoi…' : (data.commande ? 'Valider les modifications' : 'Valider ma commande');
+    var sansPoint = !data.points.length;
+    b.disabled = envoiEnCours || sansPoint || t.articles === 0 || (data.commande && !modifie());
+    b.textContent = envoiEnCours ? 'Envoi…' : (sansPoint ? 'Lieu de livraison pas encore indiqué' : (data.commande ? 'Valider les modifications' : 'Valider ma commande'));
   }
 
   function majPortion(id) {
@@ -423,6 +427,7 @@
   // ---------- Actions ----------
   function valider() {
     if (!point) {
+      if (!data.points.length) return; // pas encore de point : le bouton est désactivé et le message est affiché à côté
       alerte = { type: 'attention', html: 'Choisissez votre point de livraison en haut de la page.' };
       afficher(); window.scrollTo(0, 0); return;
     }

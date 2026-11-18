@@ -397,7 +397,7 @@
         if (d.feEnr) {
           var nomE = val('fe' + d.feEnr + '-nom');
           if (!nomE) { toast('Indiquez le nom de la ferme.'); return; }
-          api('fermes?id=eq.' + d.feEnr, { method: 'PATCH', body: { nom: nomE, contact: val('fe' + d.feEnr + '-contact') || null, lait: val('fe' + d.feEnr + '-lait') || null } })
+          api('fermes?id=eq.' + d.feEnr, { method: 'PATCH', body: Object.assign({ nom: nomE, contact: val('fe' + d.feEnr + '-contact') || null }, ('lait' in (fermes.filter(function (f) { return f.id === Number(d.feEnr); })[0] || {})) ? { lait: val('fe' + d.feEnr + '-lait') || null } : {}) })
             .then(function () { return recharger('Ferme enregistrée'); }).catch(echec);
           return;
         }
