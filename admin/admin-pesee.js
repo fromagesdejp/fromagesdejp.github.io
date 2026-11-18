@@ -70,13 +70,20 @@
     if (!filtre) filtre = ouverte ? 'toutes' : 'a_faire';
 
     var MOYENS = { virement: 'virement', especes: 'espèces', cheque: 'chèque', autre: 'autre' };
-    return FJP.api('commandes?select=id,reference,montant,paye,moyen,commentaire,prete_le,point_id,' +
+    var fermes = [];
+    return FJP.api('fermes?select=id,nom,ordre&order=ordre,id').catch(function () { return []; }).then(function (fs) { fermes = fs; return FJP.api('commandes?select=id,reference,montant,paye,moyen,commentaire,prete_le,point_id,' +
       'gourmet:gourmets(prenom,nom,email,telephone),' +
-      'lignes(id,quantite,prix_unitaire,poids_g,poids_reels,prix_reels,prix_final,preparee,retiree,portion:portions(libelle,mode,ordre,offre:offres(ordre,produit:produits(nom))))' +
-      '&campagne_id=eq.' + campagne.id + '&statut=eq.validee').then(function (cmds) {
+      'lignes(id,quantite,prix_unitaire,poids_g,poids_reels,prix_reels,prix_final,preparee,retiree,portion:portions(libelle,mode,ordre,offre:offres(ordre,produit:produits(nom,ferme_id))))' +
+      '&campagne_id=eq.' + campagne.id + '&statut=eq.validee'); }).then(function (cmds) {
       var ouvert = null; // commande dépliée
+      // Lignes rangées ferme par ferme, puis dans l'ordre de la liste
+      var rangFerme = {}; fermes.forEach(function (f, i) { rangFerme[f.id] = i; });
+      function fermeDe(l) { return l.portion.offre.produit.ferme_id; }
+      function nomFerme(id) { var f = fermes.filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
       cmds.forEach(function (c) {
-        c.lignes.sort(function (a, b) { return (a.portion.offre.ordre - b.portion.offre.ordre) || (a.portion.ordre - b.portion.ordre); });
+        c.lignes.sort(function (a, b) {
+          return ((rangFerme[fermeDe(a)] || 0) - (rangFerme[fermeDe(b)] || 0)) || (a.portion.offre.ordre - b.portion.offre.ordre) || (a.portion.ordre - b.portion.ordre);
+        });
       });
       cmds.sort(function (a, b) {
         return (a.point_id - b.point_id) || String(a.gourmet.nom).localeCompare(String(b.gourmet.nom));
@@ -173,7 +180,15 @@
         var h = '<div class="detail" id="detail-' + c.id + '">';
         h += '<div class="pe-prog" id="prog-' + c.id + '">' + texteProg(k, n) + '<span>' + (n ? Math.round(100 * k / n) : 0) + ' %</span></div>' +
           '<div id="barre-' + c.id + '" style="margin-bottom:6px">' + barre(k, n) + '</div>';
+        var plusieurs = c.lignes.some(function (l) { return fermeDe(l) !== fermeDe(c.lignes[0]); });
+        var fermePrec = null;
         c.lignes.forEach(function (l) {
+          if (plusieurs && fermeDe(l) !== fermePrec) {
+            fermePrec = fermeDe(l);
+            var deLaFerme = c.lignes.filter(function (x) { return fermeDe(x) === fermePrec && !x.retiree; });
+            h += '<div class="pe-ferme" style="margin:14px 0 0;padding:6px 10px;border-radius:10px;background:var(--fromage-clair,#FFF1D6);font-weight:800;font-size:14px;display:flex;justify-content:space-between;gap:8px">' +
+              '<span>' + esc(nomFerme(fermePrec) || 'Autre ferme') + '</span><span style="font-weight:600;color:var(--texte-doux)">' + deLaFerme.length + ' article' + (deLaFerme.length > 1 ? 's' : '') + '</span></div>';
+          }
           var nom = l.portion.offre.produit.nom + ', ' + l.portion.libelle;
           var estime = l.quantite * l.prix_unitaire;
           var coupe = l.portion.mode === 'coupe';

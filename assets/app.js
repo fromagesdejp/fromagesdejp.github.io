@@ -41,6 +41,41 @@
   function poidsPrecis(g) { return g >= 1000 ? (g / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 3 }) + ' kg' : g + ' g'; }
   var PICTOS = { vache: 'vache', chevre: 'chevre', brebis: 'brebis', porc: 'porc', melange: 'vache', aucun: 'plat' };
 
+  // ---------- Fermes ----------
+  // Les produits viennent de plusieurs fermes : le bon les présente ferme par ferme.
+  function fermesListe() { return (data && data.fermes) || []; }
+  function nomFerme(id) { var f = fermesListe().filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
+  // Rubriques de chaque ferme : [{ ferme, categories: [{ nom, produits }] }], dans l'ordre des fermes
+  function parFerme(categories) {
+    var fs = fermesListe().slice(), res = [];
+    var connues = {}; fs.forEach(function (f) { connues[f.id] = true; });
+    (categories || []).forEach(function (cat) { cat.produits.forEach(function (pr) { if (!connues[pr.ferme_id]) { connues[pr.ferme_id] = true; fs.push({ id: pr.ferme_id, nom: '' }); } }); });
+    fs.forEach(function (f) {
+      var cats = [];
+      (categories || []).forEach(function (cat) {
+        var ps = cat.produits.filter(function (pr) { return pr.ferme_id === f.id; });
+        if (ps.length) cats.push(Object.assign({}, cat, { produits: ps }));
+      });
+      if (cats.length) res.push({ ferme: f, categories: cats });
+    });
+    return res;
+  }
+  // Lignes d'une commande regroupées par ferme (titre de ferme seulement s'il y en a plusieurs)
+  function lignesParFerme(lignes, fermeDe) {
+    var groupes = [], vu = {};
+    lignes.forEach(function (l) {
+      var id = fermeDe(l);
+      if (!vu[id]) { vu[id] = { id: id, lignes: [] }; groupes.push(vu[id]); }
+      vu[id].lignes.push(l);
+    });
+    var ordre = {}; fermesListe().forEach(function (f, i) { ordre[f.id] = i; });
+    groupes.sort(function (a, b) { return (ordre[a.id] == null ? 99 : ordre[a.id]) - (ordre[b.id] == null ? 99 : ordre[b.id]); });
+    return groupes;
+  }
+  function titreFermeRecap(id, plusieurs) {
+    return plusieurs && nomFerme(id) ? '<div class="recap-ferme">' + esc(nomFerme(id)) + '</div>' : '';
+  }
+
   // ---------- Appels à la base ----------
   function rpc(nom, params) {
     return fetch(C.supabaseUrl + '/rest/v1/rpc/' + nom, {
@@ -156,11 +191,15 @@
     if (!dc.prete) {
       h += '<div class="bandeau info" style="margin:0 0 12px">Jean-Paul prépare votre commande et pèse les fromages à la coupe. Vous recevrez par mail le montant exact à payer : rien à régler pour l’instant.</div>';
     }
-    dc.lignes.forEach(function (l) {
-      var pese = dc.prete && l.poids_reels && l.poids_reels.length;
-      h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(l.nom) +
-        (pese ? '<small style="display:block;font-size:13px;color:var(--texte-doux)">pesé : ' + esc(l.poids_reels.map(poidsPrecis).join(' + ')) + '</small>' : '') +
-        '</span><b>' + prix(dc.prete ? l.prix : l.estime) + '</b></div>';
+    var gpes = lignesParFerme(dc.lignes, function (l) { return l.ferme_id; });
+    gpes.forEach(function (gp) {
+      h += titreFermeRecap(gp.id, gpes.length > 1);
+      gp.lignes.forEach(function (l) {
+        var pese = dc.prete && l.poids_reels && l.poids_reels.length;
+        h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(l.nom) +
+          (pese ? '<small style="display:block;font-size:13px;color:var(--texte-doux)">pesé : ' + esc(l.poids_reels.map(poidsPrecis).join(' + ')) + '</small>' : '') +
+          '</span><b>' + prix(dc.prete ? l.prix : l.estime) + '</b></div>';
+      });
     });
     h += '<div class="recap-total"><span>' + (dc.prete ? (dc.paye ? 'Montant payé' : 'Montant à payer') : 'Montant estimé') + '</span><b>' + prix(dc.montant) + '</b></div>';
     if (dc.point) {
@@ -239,7 +278,10 @@
     if (alerte) h += '<div class="bandeau ' + alerte.type + '" role="alert">' + alerte.html + '</div>';
     if (d.commande) h += '<div class="bandeau info">Votre commande est déjà enregistrée. Modifiez les quantités puis validez à nouveau.</div>';
 
-    d.categories.forEach(function (cat) {
+    var blocs = parFerme(d.categories);
+    blocs.forEach(function (bloc) {
+     if (blocs.length > 1) h += '<div class="ferme-tete"><h2>' + esc(bloc.ferme.nom) + '</h2></div>';
+     bloc.categories.forEach(function (cat) {
       h += '<section class="categorie"><h2>' + esc(cat.nom) + '</h2><div class="liste">';
       cat.produits.forEach(function (pr) {
         var img = pr.photo_url || (PICTOS[pr.lait] ? 'images/lait-' + PICTOS[pr.lait] + '.png' : '');
@@ -287,6 +329,7 @@
         h += '</div></article>';
       });
       h += '</div></section>';
+     });
     });
 
     h += '<div class="commentaire"><label for="commentaire">Un mot pour Jean-Paul (facultatif)</label>' +
@@ -325,10 +368,14 @@
     if (derniere && derniere.prete && !derniere.paye) h += carteDerniere(derniere);
     h += '<section class="carte"><div class="coche" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>' +
       '<h1>Merci ' + esc(d.gourmet.prenom) + ' !</h1><p>Votre commande « ' + esc(c.nom) + ' » est bien enregistrée.</p>';
-    cmd.lignes.forEach(function (l) {
-      var e = portionsParId[l.portion_id];
-      var nom = l.nom || (e ? e.produit.nom + ', ' + e.portion.libelle : 'Produit');
-      h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(nom) + '</span><b>' + prix(l.quantite * l.prix_unitaire) + '</b></div>';
+    var gpes = lignesParFerme(cmd.lignes, function (l) { var e = portionsParId[l.portion_id]; return l.ferme_id || (e && e.produit.ferme_id); });
+    gpes.forEach(function (gp) {
+      h += titreFermeRecap(gp.id, gpes.length > 1);
+      gp.lignes.forEach(function (l) {
+        var e = portionsParId[l.portion_id];
+        var nom = l.nom || (e ? e.produit.nom + ', ' + e.portion.libelle : 'Produit');
+        h += '<div class="recap-ligne' + (l.retiree ? ' retiree' : '') + '"><span>' + l.quantite + ' × ' + esc(nom) + '</span><b>' + prix(l.quantite * l.prix_unitaire) + '</b></div>';
+      });
     });
     h += '<div class="recap-total"><span>Montant estimé</span><b>' + prix(cmd.montant) + '</b></div>';
     if (pt) h += '<p style="margin-top:10px;font-size:14px;color:var(--texte-doux)">Livraison ' + esc(dateSimple(pt.date_livraison)) + ' · ' + esc([pt.ville, pt.lieu, pt.heure].filter(Boolean).join(', ')) + '</p>';
@@ -393,7 +440,10 @@
       '<p style="font-size:14px;margin:12px 0">Fin de commande : <b>' + esc(jourLong(fin) + ', ' + heure(fin)) + '</b>' +
       (c.livraison ? ' · Livraison : <b>' + esc(dateSimple(c.livraison)) + '</b>' : '') + '<br>' +
       'Prix transport compris. Fromages à la coupe : prix estimé, calculé au poids réel à l’arrivée. Sous réserve de disponibilité.</p>';
-    data.categories.forEach(function (cat) {
+    var blocsPdf = parFerme(data.categories);
+    blocsPdf.forEach(function (bloc) {
+     if (blocsPdf.length > 1) h += '<div style="font-size:21px;font-weight:800;color:#12313F;margin:22px 0 4px;padding:6px 12px;background:#FDF0D5;border-radius:10px;page-break-after:avoid">' + esc(bloc.ferme.nom) + '</div>';
+     bloc.categories.forEach(function (cat) {
       h += '<div style="font-size:18px;font-weight:800;color:#0B6E78;margin:16px 0 6px;page-break-after:avoid">' + esc(cat.nom) + '</div>';
       cat.produits.forEach(function (pr) {
         var img = PICTOS[pr.lait] ? 'images/lait-' + PICTOS[pr.lait] + '.png' : '';
@@ -408,6 +458,7 @@
               '<td style="text-align:right;font-weight:700;white-space:nowrap">' + (po.mode === 'coupe' ? '≈ ' : '') + esc(prix(po.prix)) + '</td></tr>';
           }).join('') + '</table></div></div>';
       });
+     });
     });
     return h + '<p style="font-size:12px;color:#3D5560;margin-top:14px">Paiement par virement, quand Jean-Paul vous aura envoyé le montant exact.</p></div>';
   }

@@ -41,3 +41,9 @@
 /* Clavier : même anneau jaune partout */
 button:focus-visible, a:focus-visible { outline: 3px solid var(--fromage); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .bouton:hover:not(:disabled), .compteur button:active:not(:disabled) { transform: none; } }
+
+/* 18/11 : plusieurs fermes — titre de chaque ferme sur le bon, et dans les récapitulatifs */
+.ferme-tete { margin: 26px 12px 4px; padding: 12px 16px; border-radius: 16px; background: var(--fromage-clair, #FDF0D5); border-left: 6px solid var(--fromage, #F5A623); }
+.ferme-tete .ferme-sur { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--texte-doux); }
+.ferme-tete h2 { margin: 2px 0 0; font-size: 22px; font-weight: 800; color: var(--texte); }
+.recap-ferme { margin: 14px 0 2px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--canard-fonce, #0B6E78); }

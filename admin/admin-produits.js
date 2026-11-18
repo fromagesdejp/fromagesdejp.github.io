@@ -10,6 +10,8 @@
   function coupeValide(g) { return g === 300 || (g >= 500 && g <= 2000 && g % 500 === 0); }
   var ouvert = null;        // id du produit en cours de modification
   var nouveauOuvert = false;
+  var fermesOuvert = false; // outil « Fermes » déplié
+  var filtreFerme = 'toutes';
 
   function num(v) { var n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : null; }
   function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; }
@@ -27,9 +29,16 @@
       api('categories?select=*&order=ordre,id'),
       api('produits?select=*&order=ordre,id'),
       cid ? api('offres?select=*,portions(*)&campagne_id=eq.' + cid) : Promise.resolve([]),
-      api('reglages?id=eq.1&select=taux_transport_kg')
+      api('reglages?id=eq.1&select=taux_transport_kg'),
+      api('fermes?select=*&order=ordre,id')
     ]).then(function (r) {
-      var cats = r[0], produits = r[1], offres = r[2];
+      var cats = r[0], produits = r[1], offres = r[2], fermes = r[4];
+      function fermesActives() { return fermes.filter(function (f) { return f.actif; }); }
+      function nomFerme(id) { var f = fermes.filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
+      // Fermes qui ont des produits (ou qui sont actives), dans l'ordre choisi
+      function fermesAMontrer() {
+        return fermes.filter(function (f) { return f.actif || produits.some(function (p) { return p.actif && p.ferme_id === f.id; }); });
+      }
       var taux = campagne && campagne.taux_transport_kg != null ? Number(campagne.taux_transport_kg) : Number((r[3][0] || {}).taux_transport_kg || 0);
       var offreDe = {};
       offres.forEach(function (o) { o.portions.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); offreDe[o.produit_id] = o; });
@@ -55,8 +64,11 @@
       }
 
       function formFiche(pr, pfx) {
-        pr = pr || { lait: 'vache', transport: true };
-        return '<div class="grille2"><div class="champ"><label for="' + pfx + 'nom">Nom</label><input id="' + pfx + 'nom" value="' + esc(pr.nom || '') + '" required></div>' +
+        pr = pr || { lait: 'vache', transport: true, ferme_id: filtreFerme !== 'toutes' ? Number(filtreFerme) : (fermesActives()[0] || {}).id };
+        var choixFermes = fermes.filter(function (f) { return f.actif || f.id === pr.ferme_id; });
+        return '<div class="champ"><label for="' + pfx + 'ferme">Ferme</label><select id="' + pfx + 'ferme">' +
+          choixFermes.map(function (f) { return '<option value="' + f.id + '"' + (f.id === pr.ferme_id ? ' selected' : '') + '>' + esc(f.nom) + '</option>'; }).join('') + '</select></div>' +
+          '<div class="grille2"><div class="champ"><label for="' + pfx + 'nom">Nom</label><input id="' + pfx + 'nom" value="' + esc(pr.nom || '') + '" required></div>' +
           '<div class="champ"><label for="' + pfx + 'cat">Rubrique</label><select id="' + pfx + 'cat">' +
           cats.map(function (c) { return '<option value="' + c.id + '"' + (c.id === pr.categorie_id ? ' selected' : '') + '>' + esc(c.nom) + '</option>'; }).join('') + '</select></div></div>' +
           '<div class="champ"><label for="' + pfx + 'desc">Description courte</label><input id="' + pfx + 'desc" value="' + esc(pr.description || '') + '" placeholder="Ex. : 2 mois d’affinage"></div>' +
@@ -71,7 +83,7 @@
       function lireFiche(pfx) {
         var cru = val(pfx + 'cru');
         return {
-          nom: val(pfx + 'nom'), categorie_id: Number(val(pfx + 'cat')), description: val(pfx + 'desc') || null,
+          nom: val(pfx + 'nom'), ferme_id: Number(val(pfx + 'ferme')) || null, categorie_id: Number(val(pfx + 'cat')), description: val(pfx + 'desc') || null,
           lait: val(pfx + 'lait'), aop: val(pfx + 'aop') || null, lait_cru: cru === 'oui' ? true : (cru === 'non' ? false : null),
           transport: coche(pfx + 'transport'), si_disponible: coche(pfx + 'sidispo')
         };
@@ -108,8 +120,40 @@
         }
         h += '</section>';
 
-        cats.forEach(function (c) {
-          var ps = produits.filter(function (p) { return p.categorie_id === c.id && p.actif; });
+        // ---------- Les fermes (ajouter, renommer, ranger, mettre de côté) ----------
+        h += '<details class="carte" id="zone-fermes"' + (fermesOuvert ? ' open' : '') + '><summary style="font-weight:800;font-size:17px;cursor:pointer">Les fermes (' + fermesActives().length + ')</summary>' +
+          '<p style="margin:8px 0;font-size:14px;color:var(--texte-doux)">Chaque produit appartient à une ferme. Le bon des gourmets, les commandes et le bon de commande sont séparés ferme par ferme.</p>';
+        fermes.forEach(function (f, i) {
+          var nb = produits.filter(function (p) { return p.actif && p.ferme_id === f.id; }).length;
+          h += '<div class="carte" style="margin:8px 0;padding:12px;box-shadow:none;border:1px solid #E2E8EA' + (f.actif ? '' : ';opacity:.6') + '">' +
+            '<div class="champ"><label for="fe' + f.id + '-nom">Nom de la ferme' + (f.actif ? '' : ' (mise de côté)') + '</label><input id="fe' + f.id + '-nom" value="' + esc(f.nom) + '"></div>' +
+            '<div class="champ"><label for="fe' + f.id + '-contact">Coordonnées (facultatif, en haut de son bon)</label><textarea id="fe' + f.id + '-contact" rows="2" style="width:100%;font:inherit">' + esc(f.contact || '') + '</textarea></div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="flex-grow:1;font-size:14px;color:var(--texte-doux)">' + nb + ' produit' + (nb > 1 ? 's' : '') + '</span>' +
+            (i > 0 ? '<button class="btn clair petit" type="button" data-fe-monter="' + f.id + '" aria-label="Monter ' + esc(f.nom) + '">↑</button>' : '') +
+            (i < fermes.length - 1 ? '<button class="btn clair petit" type="button" data-fe-descendre="' + f.id + '" aria-label="Descendre ' + esc(f.nom) + '">↓</button>' : '') +
+            '<button class="btn" type="button" data-fe-enr="' + f.id + '">Enregistrer</button>' +
+            '<button class="btn ' + (f.actif ? 'rouge' : 'clair') + '" type="button" data-fe-actif="' + f.id + '">' + (f.actif ? 'Mettre de côté' : 'Reprendre') + '</button></div></div>';
+        });
+        h += '<div class="carte" style="margin:8px 0;padding:12px;box-shadow:none;background:var(--canard-clair)">' +
+          '<div class="champ"><label for="fe-nouvelle">Ajouter une ferme</label><input id="fe-nouvelle" placeholder="Ex. : Ferme des Tilleuls"></div>' +
+          '<button class="btn" type="button" data-fe-ajout>+ Ajouter la ferme</button></div></details>';
+
+        var montrees = fermesAMontrer();
+        if (montrees.length > 1) {
+          h += '<div class="filtres"><button type="button" data-filtre-ferme="toutes" aria-pressed="' + (filtreFerme === 'toutes') + '">Toutes les fermes</button>' +
+            montrees.map(function (f) { return '<button type="button" data-filtre-ferme="' + f.id + '" aria-pressed="' + (String(filtreFerme) === String(f.id)) + '">' + esc(f.nom) + '</button>'; }).join('') + '</div>';
+        }
+
+        montrees.forEach(function (fe) {
+         if (filtreFerme !== 'toutes' && Number(filtreFerme) !== fe.id) return;
+         var dansFerme = produits.filter(function (p) { return p.actif && p.ferme_id === fe.id; });
+         if (montrees.length > 1) h += '<div class="ferme-tete" style="margin:22px 12px 4px;padding:10px 14px;border-radius:14px;background:var(--fromage-clair,#FFF1D6);border-left:6px solid var(--fromage,#F5A623)"><h2 style="margin:0;font-size:20px">' + esc(fe.nom) + '</h2></div>';
+         if (!dansFerme.length) {
+           h += '<p class="avis" style="margin:8px 16px">Aucun produit pour l’instant. Touchez « + Nouveau produit » et choisissez « ' + esc(fe.nom) + ' ».</p>';
+           return;
+         }
+         cats.forEach(function (c) {
+          var ps = dansFerme.filter(function (p) { return p.categorie_id === c.id; });
           if (!ps.length) return;
           h += '<section class="categorie"><h2>' + esc(c.nom) + '</h2><div class="liste">';
           ps.forEach(function (pr) {
@@ -152,16 +196,20 @@
             h += '</div>';
           });
           h += '</div></section>';
+         });
         });
         app.innerHTML = h;
+        var zf = document.getElementById('zone-fermes');
+        if (zf) zf.ontoggle = function () { fermesOuvert = zf.open; };
       }
 
       function recharger(msg) {
         return Promise.all([
           api('produits?select=*&order=ordre,id'),
-          cid ? api('offres?select=*,portions(*)&campagne_id=eq.' + cid) : Promise.resolve([])
+          cid ? api('offres?select=*,portions(*)&campagne_id=eq.' + cid) : Promise.resolve([]),
+          api('fermes?select=*&order=ordre,id')
         ]).then(function (r2) {
-          produits = r2[0]; offres = r2[1]; offreDe = {};
+          produits = r2[0]; offres = r2[1]; fermes = r2[2]; offreDe = {};
           offres.forEach(function (o) { o.portions.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); offreDe[o.produit_id] = o; });
           dessiner(); if (msg) toast(msg);
           pdfAuto();
@@ -197,8 +245,12 @@
           '<div style="font-size:15px">' + esc(campagne.nom) + '</div></div></div>' +
           '<p style="font-size:14px;margin:12px 0">Fin de commande : <b>' + esc(dateFr(campagne.cloture, true)) + '</b>' + (campagne.livraison ? ' · Livraison : <b>' + esc(dateFr(campagne.livraison)) + '</b>' : '') + '<br>' +
           'Prix transport compris. Fromages à la coupe : prix estimé, calculé au poids réel à l’arrivée. Sous réserve de disponibilité.</p>';
-        cats.forEach(function (c) {
-          var ps = produits.filter(function (p) { var o = offreDe[p.id]; return p.categorie_id === c.id && p.actif && o && !o.retire && o.portions.length; });
+        var proposes = produits.filter(function (p) { var o = offreDe[p.id]; return p.actif && o && !o.retire && o.portions.length; });
+        var fPdf = fermes.filter(function (f) { return proposes.some(function (p) { return p.ferme_id === f.id; }); });
+        fPdf.forEach(function (fe) {
+         if (fPdf.length > 1) h += '<div style="font-size:21px;font-weight:800;color:#12313F;margin:22px 0 4px;padding:6px 12px;background:#FDF0D5;border-radius:10px;page-break-after:avoid">' + esc(fe.nom) + '</div>';
+         cats.forEach(function (c) {
+          var ps = proposes.filter(function (p) { return p.ferme_id === fe.id && p.categorie_id === c.id; });
           if (!ps.length) return;
           h += '<div style="font-size:18px;font-weight:800;color:#0B6E78;margin:16px 0 6px;page-break-after:avoid">' + esc(c.nom) + '</div>';
           ps.forEach(function (pr) {
@@ -215,6 +267,7 @@
                   '<td style="text-align:right;font-weight:700;white-space:nowrap">' + (po.mode === 'coupe' ? '≈ ' : '') + esc(prix(prixFinal(pr, po))) + '</td></tr>';
               }).join('') + '</table></div></div>';
           });
+         });
         });
         h += '<p style="font-size:12px;color:#3D5560;margin-top:14px">Paiement par virement, quand Jean-Paul vous aura envoyé le montant exact.</p></div>';
         return h;
@@ -292,6 +345,42 @@
         if (!b) return;
         var d = b.dataset;
         if (d.nouveau !== undefined) { nouveauOuvert = !nouveauOuvert; dessiner(); return; }
+        if (d.filtreFerme) { filtreFerme = d.filtreFerme; dessiner(); return; }
+        if (d.feAjout !== undefined) {
+          var nomF = val('fe-nouvelle');
+          if (!nomF) { toast('Indiquez le nom de la ferme.'); return; }
+          if (fermes.some(function (f) { return f.nom.toLowerCase() === nomF.toLowerCase(); })) { toast('Cette ferme existe déjà.'); return; }
+          b.disabled = true;
+          api('fermes', { method: 'POST', body: { nom: nomF, ordre: fermes.reduce(function (m, f) { return Math.max(m, f.ordre); }, 0) + 1 } })
+            .then(function () { fermesOuvert = true; return recharger('Ferme ajoutée : « ' + esc(nomF) + ' »'); }).catch(function (er) { b.disabled = false; echec(er); });
+          return;
+        }
+        if (d.feEnr) {
+          var nomE = val('fe' + d.feEnr + '-nom');
+          if (!nomE) { toast('Indiquez le nom de la ferme.'); return; }
+          api('fermes?id=eq.' + d.feEnr, { method: 'PATCH', body: { nom: nomE, contact: val('fe' + d.feEnr + '-contact') || null } })
+            .then(function () { return recharger('Ferme enregistrée'); }).catch(echec);
+          return;
+        }
+        if (d.feActif) {
+          var fa = fermes.filter(function (f) { return f.id === Number(d.feActif); })[0];
+          if (fa.actif && fermesActives().length < 2) { toast('Il faut garder au moins une ferme.'); return; }
+          var nbA = produits.filter(function (p) { return p.actif && p.ferme_id === fa.id; }).length;
+          if (fa.actif && !window.confirm('Mettre de côté « ' + fa.nom + ' » ?' + (nbA ? ' Ses ' + nbA + ' produits restent dans la liste : ne les proposez plus si elle ne livre plus.' : '') + ' Vous pourrez la reprendre plus tard.')) return;
+          api('fermes?id=eq.' + fa.id, { method: 'PATCH', body: { actif: !fa.actif } })
+            .then(function () { return recharger(fa.actif ? 'Ferme mise de côté' : 'Ferme reprise'); }).catch(echec);
+          return;
+        }
+        if (d.feMonter || d.feDescendre) {
+          var idF = Number(d.feMonter || d.feDescendre), iF = fermes.map(function (f) { return f.id; }).indexOf(idF);
+          var jF = d.feMonter ? iF - 1 : iF + 1;
+          if (jF < 0 || jF >= fermes.length) return;
+          var ord = fermes.map(function (f) { return f.id; });
+          var t = ord[iF]; ord[iF] = ord[jF]; ord[jF] = t;
+          Promise.all(ord.map(function (id, k) { return api('fermes?id=eq.' + id, { method: 'PATCH', body: { ordre: k + 1 } }); }))
+            .then(function () { return recharger('Ordre des fermes enregistré'); }).catch(echec);
+          return;
+        }
         if (d.pdf !== undefined) { b.disabled = true; b.lastChild.textContent = 'Préparation du PDF…'; creerPdf(); return; }
         if (d.creer !== undefined) {
           var fiche = lireFiche('nv-');

@@ -336,7 +336,7 @@
 
   // ---------- Gourmets ----------
   function vueGourmets() {
-    return api('gourmets?select=id,numero,prenom,nom,email,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
+    return api('gourmets?select=id,numero,prenom,nom,email,email2,telephone,ville_habituelle,actif,jeton,jeton_cree_le&order=actif.desc,nom,prenom').then(function (gs) {
       var dernierLien = null; // { id, url }
       var menuOuvert = null;  // gourmet dont les autres actions sont affichées
       var recherche = '';     // texte tapé dans « Chercher un gourmet »
@@ -348,13 +348,14 @@
           '<div class="grille2"><div class="champ"><label for="g-prenom">Prénom</label><input id="g-prenom" required></div>' +
           '<div class="champ"><label for="g-nom">Nom</label><input id="g-nom" required style="text-transform:uppercase"></div></div>' +
           '<div class="champ"><label for="g-email">E-mail</label><input id="g-email" type="email" required></div>' +
+          '<div class="champ"><label for="g-email2">Deuxième e-mail (facultatif)</label><input id="g-email2" type="email" placeholder="Ex. : l’adresse de son conjoint"><small>Les mails partent aux deux adresses.</small></div>' +
           '<div class="grille2"><div class="champ"><label for="g-tel">Téléphone (facultatif)</label><input id="g-tel" type="tel"></div>' +
           '<div class="champ"><label for="g-ville">Ville de livraison</label><input id="g-ville" list="villes"></div></div>' +
           '<datalist id="villes">' + points.map(function (p) { return '<option value="' + esc(p.ville) + '">'; }).join('') + '</datalist>' +
           '<button class="bouton" type="submit">Ajouter et créer son lien</button></form></details>';
         var q = sansAccents(recherche.trim());
         var vus = gs.filter(function (g) {
-          return !q || sansAccents([g.prenom, g.nom, g.email, g.ville_habituelle, g.telephone].join(' ')).indexOf(q) >= 0;
+          return !q || sansAccents([g.prenom, g.nom, g.email, g.email2, g.ville_habituelle, g.telephone].join(' ')).indexOf(q) >= 0;
         });
         h += '<div class="champ g-cherche"><label for="g-cherche">Chercher un gourmet</label>' +
           '<input id="g-cherche" type="search" value="' + esc(recherche) + '" placeholder="Nom, prénom, e-mail ou ville" autocomplete="off"></div>';
@@ -364,7 +365,7 @@
         vus.forEach(function (g) {
           var ouvert = menuOuvert === g.id;
           h += '<div><div class="ligne g-ligne"' + (g.actif ? '' : ' style="opacity:.55"') + '><span class="txt"><b>' + esc(nomG(g)) + (g.actif ? '' : ' (inactif)') + '</b>' +
-            '<small>' + esc([g.email, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
+            '<small>' + esc([g.email, g.email2, g.ville_habituelle].filter(Boolean).join(' · ')) + '<br>' + (g.jeton_cree_le ? 'Lien créé le ' + esc(dateCourte(g.jeton_cree_le)) : 'Pas encore de lien') + '</small></span>' +
             '<span class="g-actions">' +
             (g.actif && g.jeton ? '<button class="btn petit" type="button" data-bon="' + g.id + '">Commander</button>' : '') +
             '<button class="btn clair petit g-plus" type="button" data-menu="' + g.id + '" aria-expanded="' + ouvert + '" aria-label="Autres actions pour ' + esc(nomG(g)) + '">' + (ouvert ? '×' : '⋯') + '</button></span></div>';
@@ -381,6 +382,7 @@
               '<div class="grille2"><div class="champ"><label for="m-prenom">Prénom</label><input id="m-prenom" required value="' + esc(g.prenom) + '"></div>' +
               '<div class="champ"><label for="m-nom">Nom</label><input id="m-nom" required style="text-transform:uppercase" value="' + esc(g.nom) + '"></div></div>' +
               '<div class="champ"><label for="m-email">E-mail</label><input id="m-email" type="email" required value="' + esc(g.email) + '"></div>' +
+              '<div class="champ"><label for="m-email2">Deuxième e-mail (facultatif)</label><input id="m-email2" type="email" value="' + esc(g.email2 || '') + '"><small>Les mails partent aux deux adresses.</small></div>' +
               '<div class="grille2"><div class="champ"><label for="m-tel">Téléphone (facultatif)</label><input id="m-tel" type="tel" value="' + esc(g.telephone || '') + '"></div>' +
               '<div class="champ"><label for="m-ville">Ville de livraison</label><input id="m-ville" list="villes" value="' + esc(g.ville_habituelle || '') + '"></div></div>' +
               '<span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" type="submit">Enregistrer</button>' +
@@ -411,6 +413,7 @@
           var corpsG = {
             prenom: document.getElementById('g-prenom').value.trim(), nom: document.getElementById('g-nom').value.trim().toUpperCase(),
             email: document.getElementById('g-email').value.trim().toLowerCase(),
+            email2: document.getElementById('g-email2').value.trim().toLowerCase() || null,
             telephone: document.getElementById('g-tel').value.trim() || null, ville_habituelle: document.getElementById('g-ville').value.trim() || null
           };
           api('gourmets', { method: 'POST', body: corpsG }).then(function (r) {
@@ -430,6 +433,7 @@
             var corpsM = {
               prenom: document.getElementById('m-prenom').value.trim(), nom: document.getElementById('m-nom').value.trim().toUpperCase(),
               email: document.getElementById('m-email').value.trim().toLowerCase(),
+              email2: document.getElementById('m-email2').value.trim().toLowerCase() || null,
               telephone: document.getElementById('m-tel').value.trim() || null, ville_habituelle: document.getElementById('m-ville').value.trim() || null
             };
             api('gourmets?id=eq.' + gm.id, { method: 'PATCH', body: corpsM }).then(function () {
@@ -463,9 +467,9 @@
         var en = e.target.closest('[data-envoyer]');
         if (en) {
           var ge = gs.filter(function (x) { return x.id === en.dataset.envoyer; })[0];
-          if (!window.confirm('Envoyer à ' + nomG(ge) + ' (' + ge.email + ') le mail avec son lien personnel ?')) return;
+          if (!window.confirm('Envoyer à ' + nomG(ge) + ' (' + [ge.email, ge.email2].filter(Boolean).join(' et ') + ') le mail avec son lien personnel ?')) return;
           en.disabled = true;
-          api('rpc/envoyer_lien', { method: 'POST', body: { p_gourmet_id: ge.id } }).then(function () { ge.jeton = ge.jeton || 'x'; ge.jeton_cree_le = ge.jeton_cree_le || new Date().toISOString(); toast('Mail envoyé à ' + esc(ge.email)); return api('gourmets?select=jeton&id=eq.' + ge.id); })
+          api('rpc/envoyer_lien', { method: 'POST', body: { p_gourmet_id: ge.id } }).then(function () { ge.jeton = ge.jeton || 'x'; ge.jeton_cree_le = ge.jeton_cree_le || new Date().toISOString(); toast('Mail envoyé à ' + esc([ge.email, ge.email2].filter(Boolean).join(' et '))); return api('gourmets?select=jeton&id=eq.' + ge.id); })
             .then(function (l) { if (l && l[0]) ge.jeton = l[0].jeton; dessiner(); }).catch(function (err) { en.disabled = false; toast('Erreur : ' + esc(err.message)); });
           return;
         }
@@ -501,9 +505,23 @@
   }
 
   // ---------- Bon de commande pour la ferme ----------
+  var fermeChoisie = null; // ferme dont le bon est affiché
   function vueFerme() {
     if (!campagne) { sansCampagne(); return; }
-    return api('totaux_ferme?campagne_id=eq.' + campagne.id + '&order=categorie_ordre,offre_ordre,portion_ordre').then(function (rows) {
+    return Promise.all([
+      api('totaux_ferme?campagne_id=eq.' + campagne.id + '&order=ferme_ordre,categorie_ordre,offre_ordre,portion_ordre'),
+      api('fermes?select=*&order=ordre,id')
+    ]).then(function (res) {
+      var tous = res[0], fermes = res[1];
+      // Fermes à montrer : les actives, et celles qui ont des commandes
+      var avec = {}; tous.forEach(function (r) { avec[r.ferme_id] = (avec[r.ferme_id] || 0) + 1; });
+      fermes = fermes.filter(function (f) { return f.actif || avec[f.id]; });
+      if (!fermes.some(function (f) { return f.id === fermeChoisie; })) {
+        var premiere = fermes.filter(function (f) { return avec[f.id]; })[0] || fermes[0];
+        fermeChoisie = premiere ? premiere.id : null;
+      }
+      var ferme = fermes.filter(function (f) { return f.id === fermeChoisie; })[0] || {};
+      var rows = tous.filter(function (r) { return r.ferme_id === fermeChoisie; });
       var cats = [], parCat = {};
       rows.forEach(function (r) {
         if (!parCat[r.categorie]) { parCat[r.categorie] = { nom: r.categorie, produits: [], parProd: {} }; cats.push(parCat[r.categorie]); }
@@ -536,11 +554,18 @@
           });
         });
       });
-      var h = '<div class="carte"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex-grow:1"><h1 style="margin:0">Bon de commande</h1>' +
+      var h = '';
+      if (fermes.length > 1) {
+        h += '<div class="filtres non-imprime" style="margin-top:16px">' + fermes.map(function (f) {
+          return '<button type="button" data-ferme="' + f.id + '" aria-pressed="' + (f.id === fermeChoisie) + '">' + esc(f.nom) + (avec[f.id] ? '' : ' (rien)') + '</button>';
+        }).join('') + '</div>';
+      }
+      h += '<div class="carte"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex-grow:1"><h1 style="margin:0">Bon de commande' + (ferme.nom ? ' — ' + esc(ferme.nom) : '') + '</h1>' +
+        (ferme.contact ? '<div style="white-space:pre-line">' + esc(ferme.contact) + '</div>' : '') +
         '<div style="color:var(--texte-doux)">' + esc(campagne.nom) + (campagne.livraison ? ' · livraison souhaitée le ' + esc(dateCourte(campagne.livraison)) : '') + '</div></div>' +
         '<button class="btn non-imprime" type="button" id="imprimer">Imprimer / PDF</button></div>';
       if (campagne.statut === 'ouverte') h += '<p class="bandeau attention non-imprime" style="margin:0 0 12px">La campagne est encore ouverte : ce bon peut encore changer jusqu’à la clôture.</p>';
-      if (!rows.length) h += '<p>Aucune commande pour l’instant.</p>';
+      if (!rows.length) h += '<p>Aucune commande pour ' + (ferme.nom ? 'la ' + esc(ferme.nom.replace(/^la /i, '')) : 'l’instant') + '.</p>';
       else {
         h += '<table class="bon"><thead><tr><th>Produit</th><th>Détail</th><th style="text-align:right">Total</th></tr></thead><tbody>';
         cats.forEach(function (c) {
@@ -560,6 +585,10 @@
       h += '</div>';
       app.innerHTML = h;
       var b = document.getElementById('imprimer'); if (b) b.onclick = function () { window.print(); };
+      app.onclick = function (e) {
+        var f = e.target.closest('[data-ferme]');
+        if (f) { fermeChoisie = Number(f.dataset.ferme); aller('ferme'); }
+      };
     });
   }
 
