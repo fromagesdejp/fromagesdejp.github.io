@@ -37,6 +37,26 @@
     ]).then(function (r) {
       var cats = r[0], produits = r[1], offres = r[2], fermes = r[4];
       function fermesActives() { return fermes.filter(function (f) { return f.actif; }); }
+      // Lait habituel d'une ferme (ex. chèvre pour la Ferme de la Treille) : pictogramme proposé pour ses nouveaux produits
+      function laitDeFerme(id) {
+        var f = fermes.filter(function (x) { return x.id === id; })[0];
+        if (f && f.lait && LAITS[f.lait]) return f.lait;
+        var compte = {};
+        produits.forEach(function (p) { if (p.actif && p.ferme_id === id) compte[p.lait] = (compte[p.lait] || 0) + 1; });
+        var mieux = Object.keys(compte).sort(function (a, b) { return compte[b] - compte[a]; })[0];
+        return mieux || 'vache';
+      }
+      // Rubrique proposée : la plus utilisée par la ferme, sinon celle de son lait (ex. « Chèvre »)
+      var MOTS_LAIT = { chevre: /ch[eè]vre/i, brebis: /brebis/i, porc: /cochon|charcut/i, aucun: /plat/i };
+      function rubriqueDeFerme(id) {
+        var compte = {};
+        produits.forEach(function (p) { if (p.actif && p.ferme_id === id) compte[p.categorie_id] = (compte[p.categorie_id] || 0) + 1; });
+        var mieux = Object.keys(compte).sort(function (a, b) { return compte[b] - compte[a]; })[0];
+        if (mieux) return Number(mieux);
+        var mot = MOTS_LAIT[laitDeFerme(id)];
+        var c = mot && cats.filter(function (x) { return mot.test(x.nom); })[0];
+        return c ? c.id : undefined;
+      }
       function nomFerme(id) { var f = fermes.filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
       // Fermes qui ont des produits (ou qui sont actives), dans l'ordre choisi
       function fermesAMontrer() {
@@ -67,7 +87,10 @@
       }
 
       function formFiche(pr, pfx) {
-        pr = pr || { lait: 'vache', transport: true, ferme_id: filtreFerme !== 'toutes' ? Number(filtreFerme) : (fermeCamp || (fermesActives()[0] || {}).id) };
+        if (!pr) {
+          var fid = filtreFerme !== 'toutes' ? Number(filtreFerme) : (fermeCamp || (fermesActives()[0] || {}).id);
+          pr = { lait: laitDeFerme(fid), transport: true, ferme_id: fid, categorie_id: rubriqueDeFerme(fid) };
+        }
         var choixFermes = fermes.filter(function (f) { return f.actif || f.id === pr.ferme_id; });
         return '<div class="champ"><label for="' + pfx + 'ferme">Ferme</label><select id="' + pfx + 'ferme">' +
           choixFermes.map(function (f) { return '<option value="' + f.id + '"' + (f.id === pr.ferme_id ? ' selected' : '') + '>' + esc(f.nom) + '</option>'; }).join('') + '</select></div>' +
@@ -130,6 +153,7 @@
           var nb = produits.filter(function (p) { return p.actif && p.ferme_id === f.id; }).length;
           h += '<div class="carte" style="margin:8px 0;padding:12px;box-shadow:none;border:1px solid #E2E8EA' + (f.actif ? '' : ';opacity:.6') + '">' +
             '<div class="champ"><label for="fe' + f.id + '-nom">Nom de la ferme' + (f.actif ? '' : ' (mise de côté)') + '</label><input id="fe' + f.id + '-nom" value="' + esc(f.nom) + '"></div>' +
+            '<div class="champ"><label for="fe' + f.id + '-lait">Lait habituel (pictogramme des nouveaux produits)</label><select id="fe' + f.id + '-lait">' + options(LAITS, f.lait || laitDeFerme(f.id)) + '</select></div>' +
             '<div class="champ"><label for="fe' + f.id + '-contact">Coordonnées (facultatif, en haut de son bon)</label><textarea id="fe' + f.id + '-contact" rows="2" style="width:100%;font:inherit">' + esc(f.contact || '') + '</textarea></div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span style="flex-grow:1;font-size:14px;color:var(--texte-doux)">' + nb + ' produit' + (nb > 1 ? 's' : '') + '</span>' +
             (i > 0 ? '<button class="btn clair petit" type="button" data-fe-monter="' + f.id + '" aria-label="Monter ' + esc(f.nom) + '">↑</button>' : '') +
@@ -163,7 +187,9 @@
             var o = offreDe[pr.id];
             var autreFerme = cid && pr.ferme_id !== fermeCamp && !o;
             var etat = !cid || autreFerme ? '' : (!o ? 'Pas proposé' : (o.retire ? 'Retiré' : 'Proposé'));
-            h += '<div><div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(pr.nom) + '</b>' +
+            h += '<div><div class="ligne" style="flex-wrap:wrap">' +
+              (PICTOS[pr.lait] ? '<img src="../images/lait-' + PICTOS[pr.lait] + '.png" alt="" width="36" height="36" style="border-radius:9px;background:#E3F4F5;flex-shrink:0">' : '') +
+              '<span class="txt"><b>' + esc(pr.nom) + '</b>' +
               '<small>' + esc(LAITS[pr.lait] || '') + (pr.transport ? '' : ' · prix net livré') + (cid && o ? '<br>' + esc(resume(pr, o)) : '') + '</small></span>' +
               (etat ? '<span class="pastille' + (etat === 'Proposé' ? ' discrete' : '') + '">' + etat + '</span>' : '') +
               '<span style="display:flex;gap:6px;width:100%;justify-content:flex-end">' +
@@ -205,6 +231,13 @@
          });
         });
         app.innerHTML = h;
+        // Nouveau produit : en changeant de ferme, le lait habituel de cette ferme est proposé
+        var nvF = document.getElementById('nv-ferme'), nvL = document.getElementById('nv-lait');
+        if (nvF && nvL) nvF.onchange = function () {
+          nvL.value = laitDeFerme(Number(nvF.value));
+          var rub = rubriqueDeFerme(Number(nvF.value)), nvC = document.getElementById('nv-cat');
+          if (rub && nvC) nvC.value = String(rub);
+        };
         var zf = document.getElementById('zone-fermes');
         if (zf) zf.ontoggle = function () { fermesOuvert = zf.open; };
       }
@@ -364,7 +397,7 @@
         if (d.feEnr) {
           var nomE = val('fe' + d.feEnr + '-nom');
           if (!nomE) { toast('Indiquez le nom de la ferme.'); return; }
-          api('fermes?id=eq.' + d.feEnr, { method: 'PATCH', body: { nom: nomE, contact: val('fe' + d.feEnr + '-contact') || null } })
+          api('fermes?id=eq.' + d.feEnr, { method: 'PATCH', body: { nom: nomE, contact: val('fe' + d.feEnr + '-contact') || null, lait: val('fe' + d.feEnr + '-lait') || null } })
             .then(function () { return recharger('Ferme enregistrée'); }).catch(echec);
           return;
         }
