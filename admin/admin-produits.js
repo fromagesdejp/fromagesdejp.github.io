@@ -141,7 +141,7 @@
             (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + 'La liste PDF se met à jour toute seule à chaque changement de produit ou de prix : c’est elle qui est jointe aux mails, et les gourmets peuvent la télécharger depuis leur bon de commande. Le bouton « Liste Produits » la télécharge sur votre téléphone.' + '</p>' : '');
         if (nouveauOuvert) {
           h += '<div style="margin-top:12px">' + formFiche(null, 'nv-') +
-            (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne « ' + esc(campagne.nom) + ' » (si c’est la même ferme)</label>' : '') +
+            (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer tout de suite dans la campagne en cours de sa ferme</label>' : '') +
             '<button class="bouton" type="button" data-creer>Créer le produit</button></div>';
         }
         h += '</section>';
@@ -426,11 +426,29 @@
           if (!fiche.nom) { toast('Indiquez le nom du produit.'); return; }
           fiche.ordre = (produits.reduce(function (m, p) { return Math.max(m, p.ordre); }, 0) || 0) + 1;
           b.disabled = true;
+          // Campagne où le proposer : celle choisie si c'est la même ferme, sinon la campagne en cours de sa ferme
+          var cible = null;
+          if (cid && coche('nv-proposer')) {
+            if (fiche.ferme_id === fermeCamp) cible = campagne;
+            else cible = (F.campagnes ? F.campagnes() : []).filter(function (c) { return c.ferme_id === fiche.ferme_id; })[0] || null;
+          }
           api('produits', { method: 'POST', body: fiche }).then(function (rp) {
             var pr = rp[0];
-            if (cid && coche('nv-proposer') && pr.ferme_id === fermeCamp) return api('offres', { method: 'POST', body: { campagne_id: cid, produit_id: pr.id, ordre: pr.ordre } }).then(function () { return pr; });
+            if (cible) return api('offres', { method: 'POST', body: { campagne_id: cible.id, produit_id: pr.id, ordre: pr.ordre } }).then(function () { return pr; });
             return pr;
-          }).then(function (pr) { nouveauOuvert = false; ouvert = pr.id; return recharger('Produit créé : ajoutez maintenant ses portions et ses prix.'); })
+          }).then(function (pr) {
+            nouveauOuvert = false; ouvert = pr.id;
+            if (cible && cible.id !== cid) {
+              // on passe sur la campagne de sa ferme pour régler tout de suite ses portions et ses prix
+              try { localStorage.setItem('fjp_campagne', String(cible.id)); } catch (e2) {}
+              vueProduits.derniere = null;
+              F.aller('produits');
+              toast('Produit créé et proposé dans « ' + esc(cible.nom) + ' » : ajoutez maintenant ses portions et ses prix.');
+              return;
+            }
+            return recharger(cible ? 'Produit créé : ajoutez maintenant ses portions et ses prix.'
+              : (cid && pr.ferme_id !== fermeCamp ? 'Produit créé. Pour le proposer, créez d’abord une campagne de la ' + esc(nomFerme(pr.ferme_id)) + ' dans « Campagnes ».' : 'Produit créé.'));
+          })
             .catch(function (er) { b.disabled = false; echec(er); });
           return;
         }

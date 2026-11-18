@@ -38,7 +38,7 @@
     var F = window.FJP, api = F.api, esc = F.esc, toast = F.toast, app = F.app;
 
     return Promise.all([
-      api('campagnes?select=*,points_livraison(*),commandes(count)&order=cloture.desc'),
+      api('campagnes?select=*,points_livraison(*),commandes(count),offres(id,retire,portions(id))&order=cloture.desc'),
       api('gourmets?select=id,prenom,nom&actif=eq.true&order=nom,prenom'),
       api('fermes?select=*&order=ordre,id')
     ]).then(function (rr) {
@@ -47,6 +47,7 @@
       var plusieursFermes = fermes.filter(function (f) { return f.actif; }).length > 1 || camps.some(function (c) { return c.ferme_id !== (camps[0] || {}).ferme_id; });
       var nvFerme = null; // ferme choisie pour la nouvelle campagne
       var choixOuvert = false;
+      camps.forEach(function (c) { c.nb_offres = (c.offres || []).filter(function (o) { return !o.retire && o.portions && o.portions.length; }).length; });
       camps.forEach(function (c) { c.points_livraison.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); });
       var courante = F.campagne();
       if (!choisie || !camps.some(function (c) { return c.id === choisie; })) choisie = courante ? courante.id : (camps[0] && camps[0].id);
@@ -81,6 +82,11 @@
 
         if (!c) { app.innerHTML = h + '<div class="carte"><p>Aucune campagne.</p></div>'; return; }
         var nb = (c.commandes && c.commandes[0] && c.commandes[0].count) || 0;
+        // Ce qui manque pour que les gourmets puissent commander
+        var manque = [];
+        if (!c.points_livraison.length) manque.push('aucun point de livraison (ajoutez-en un plus bas)');
+        if (c.nb_offres === 0) manque.push('aucun produit proposé (rubrique « Produits », bouton « Proposer », puis une portion avec son prix)');
+        if (manque.length && c.statut !== 'terminee') h += '<div class="bandeau attention" style="margin:12px 16px 0"><b>Les gourmets ne peuvent pas encore commander :</b> ' + esc(manque.join(' ; ')) + '.</div>';
         h += '<section class="carte"><div style="display:flex;gap:8px;align-items:center"><h1 style="flex-grow:1;font-size:22px">' + esc(c.nom) + '</h1>' +
           '<span class="pastille discrete">' + esc(STATUTS[c.statut]) + '</span></div>' +
           (plusieursFermes ? '<p style="margin:0;font-weight:800;color:var(--canard)">' + esc(nomFerme(c.ferme_id)) + '</p>' : '') +
@@ -112,10 +118,10 @@
         var exclus = c.exclus || [];
         var nbInvites = gourmets.filter(function (g) { return exclus.indexOf(g.id) < 0; }).length;
         var tous = nbInvites === gourmets.length;
-        h += '<section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Gourmets qui reçoivent les mails</h2>' +
-          '<p style="margin:0 0 10px;font-size:14px;color:var(--texte-doux)">Mail d’ouverture et rappels de cette campagne : <b style="color:var(--texte)">' + nbInvites + ' gourmet' + (nbInvites > 1 ? 's' : '') + ' sur ' + gourmets.length + '</b>.</p>' +
-          '<label style="display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:8px 0;cursor:pointer"><input type="checkbox" id="dest-tous" style="width:22px;height:22px"' + (tous ? ' checked' : '') + '> Envoyer à tout le monde</label>' +
-          '<details id="dest-choix"' + (choixOuvert || !tous ? ' open' : '') + '><summary style="cursor:pointer;color:var(--canard);font-weight:700;padding:6px 0">Choisir les gourmets (décocher ceux qui ne doivent pas recevoir les mails)</summary>' +
+        h += '<section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Gourmets invités</h2>' +
+          '<p style="margin:0 0 10px;font-size:14px;color:var(--texte-doux)">Ils reçoivent le mail d’ouverture et les rappels, et voient cette campagne sur leur bon (les autres ne la voient pas) : <b style="color:var(--texte)">' + nbInvites + ' gourmet' + (nbInvites > 1 ? 's' : '') + ' sur ' + gourmets.length + '</b>.</p>' +
+          '<label style="display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:8px 0;cursor:pointer"><input type="checkbox" id="dest-tous" style="width:22px;height:22px"' + (tous ? ' checked' : '') + '> Inviter tout le monde</label>' +
+          '<details id="dest-choix"' + (choixOuvert || !tous ? ' open' : '') + '><summary style="cursor:pointer;color:var(--canard);font-weight:700;padding:6px 0">Choisir les gourmets (décocher ceux qui ne sont pas invités)</summary>' +
           '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px;margin-top:6px">' +
           gourmets.map(function (g) {
             return '<label style="display:flex;gap:8px;align-items:center;padding:6px 0;cursor:pointer"><input type="checkbox" data-dest="' + g.id + '" style="width:20px;height:20px"' + (exclus.indexOf(g.id) < 0 ? ' checked' : '') + '> ' + esc(g.prenom + ' ' + String(g.nom || '').toUpperCase()) + '</label>';
