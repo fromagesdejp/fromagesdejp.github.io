@@ -508,11 +508,33 @@
       rows.forEach(function (r) {
         if (!parCat[r.categorie]) { parCat[r.categorie] = { nom: r.categorie, produits: [], parProd: {} }; cats.push(parCat[r.categorie]); }
         var c = parCat[r.categorie];
-        if (!c.parProd[r.produit]) { c.parProd[r.produit] = { nom: r.produit, details: [], poids: 0, pieces: 0, coupe: false }; c.produits.push(c.parProd[r.produit]); }
+        if (!c.parProd[r.produit]) { c.parProd[r.produit] = { nom: r.produit, lignes: [], details: [], poids: 0, pieces: 0, coupe: false }; c.produits.push(c.parProd[r.produit]); }
         var p = c.parProd[r.produit];
-        p.details.push(r.quantite + ' × ' + r.portion);
-        p.poids += r.poids_total_g; p.pieces += r.quantite;
+        p.lignes.push({ portion: r.portion, quantite: r.quantite, mode: r.mode });
+        p.poids += r.poids_total_g;
         if (r.mode === 'coupe') p.coupe = true;
+      });
+      // Moitiés (ex. St-Nectaire) : la ferme ne vend que des entiers. Deux moitiés du même affinage
+      // deviennent un entier ; s'il reste une moitié, elle reste indiquée (JP prendra l'autre moitié).
+      var MOITIE = /\s*(moitié|moitie|demi|½)\s*/i;
+      cats.forEach(function (c) {
+        c.produits.forEach(function (p) {
+          p.lignes.forEach(function (l, i) {
+            if (l.mode === 'coupe' || !MOITIE.test(l.portion) || l.quantite < 2) return;
+            var nomEntier = l.portion.replace(MOITIE, function (m) { return m.replace(/moitié|moitie|demi|½/i, 'entier'); });
+            var entier = p.lignes.filter(function (x) { return x !== l && x.portion.toLowerCase() === nomEntier.toLowerCase(); })[0];
+            if (!entier) { entier = { portion: nomEntier, quantite: 0, mode: l.mode }; p.lignes.splice(i, 0, entier); }
+            var paires = Math.floor(l.quantite / 2);
+            entier.quantite += paires; entier.moities = (entier.moities || 0) + paires * 2;
+            l.quantite = l.quantite % 2;
+          });
+          p.lignes = p.lignes.filter(function (l) { return l.quantite > 0; });
+          p.lignes.forEach(function (l) {
+            p.pieces += l.quantite;
+            p.details.push(esc(l.quantite + ' × ' + l.portion) +
+              (l.moities ? ' <span class="non-imprime" style="color:var(--texte-doux);font-size:13px">(dont ' + (l.moities / 2) + ' pour ' + l.moities + ' moitiés commandées)</span>' : ''));
+          });
+        });
       });
       var h = '<div class="carte"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex-grow:1"><h1 style="margin:0">Bon de commande</h1>' +
         '<div style="color:var(--texte-doux)">' + esc(campagne.nom) + (campagne.livraison ? ' · livraison souhaitée le ' + esc(dateCourte(campagne.livraison)) : '') + '</div></div>' +
@@ -524,7 +546,7 @@
         cats.forEach(function (c) {
           h += '<tr class="cat"><td colspan="3">' + esc(c.nom) + '</td></tr>';
           c.produits.forEach(function (p) {
-            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.map(esc).join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
+            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
           });
         });
         h += '</tbody></table><p class="une-ligne" style="font-size:15.5px;font-weight:700;color:var(--texte);margin-top:14px;line-height:1.4">Chaque morceau « à la coupe » est préparé séparément (ex. 6 × 500 g = six morceaux de 500 g).</p><p style="font-size:16px;font-weight:700;color:#C62828;margin-top:6px;line-height:1.4">Merci d’indiquer les poids et le prix SVP</p>';
