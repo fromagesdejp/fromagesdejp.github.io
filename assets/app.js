@@ -93,7 +93,8 @@
   // ---------- État ----------
   var jeton = null;
   var data = null;          // réponse de bon_de_commande
-  var derniere = null;      // dernière commande d'une campagne close (pesée, montant à payer)
+  var dernieres = [];       // dernières commandes closes (une par ferme) : pesée, montant à payer
+  var campagneVoulue = null; // campagne (ferme) choisie par le gourmet, ou donnée par le lien du mail (&c=)
   var qte = {};             // portion_id -> quantité
   var point = null;         // point de livraison choisi
   var commentaire = '';
@@ -110,6 +111,7 @@
     // ?appli=1 : bon ouvert depuis l'appli de JP (on ne le mémorise pas sur l'appareil)
     var dansAppli = p.has('appli');
     if (dansAppli) document.documentElement.classList.add('dans-appli');
+    if (p.get('c')) campagneVoulue = Number(p.get('c')) || null;
     if (k) { jeton = k; if (!dansAppli) stocker('fjp_lien', k); }
     else { jeton = lire('fjp_lien'); }
   })();
@@ -118,11 +120,14 @@
   function charger(mode) {
     if (!jeton) { afficherSansLien(); return; }
     return Promise.all([
-      rpc('bon_de_commande', { p_jeton: jeton }),
-      rpc('derniere_commande', { p_jeton: jeton }).catch(function () { return null; })
+      rpc('bon_de_commande', { p_jeton: jeton, p_campagne_id: campagneVoulue }),
+      rpc('dernieres_commandes', { p_jeton: jeton }).catch(function () {
+        return rpc('derniere_commande', { p_jeton: jeton }).then(function (x) { return x ? [x] : []; }).catch(function () { return []; });
+      })
     ]).then(function (res) {
       var d = res[0];
-      data = d; derniere = res[1] || null;
+      data = d; dernieres = res[1] || [];
+      if (d.campagne) campagneVoulue = d.campagne.id;
       if (d.erreur === 'lien_invalide') { stocker('fjp_lien', null); afficherLienInvalide(); return; }
       bonjour.textContent = 'Bonjour ' + d.gourmet.prenom;
       portionsParId = {};
@@ -169,16 +174,16 @@
   }
   function afficherFermee() {
     var d = data;
-    var h = derniere ? carteDerniere(derniere) : '';
-    h += '<div class="carte"><h1' + (derniere ? ' style="font-size:19px"' : '') + '>Pas de commande en cours</h1>';
+    var h = dernieres.map(carteDerniere).join('');
+    h += '<div class="carte"><h1' + (dernieres.length ? ' style="font-size:19px"' : '') + '>Pas de commande en cours</h1>';
     if (d.prochaine_commande) h += '<p>Prochaine commande prévue : <b>' + esc(dateSimple(d.prochaine_commande)) + '</b>. Vous recevrez un mail à l’ouverture.</p>';
     else h += '<p>Vous recevrez un mail dès que la prochaine commande sera ouverte.</p>';
     h += '</div>';
-    var hist = (d.historique || []).filter(function (x) { return !derniere || x.reference !== derniere.reference; });
+    var hist = (d.historique || []).filter(function (x) { return !dernieres.some(function (y) { return y.reference === x.reference; }); });
     if (hist.length) {
       h += '<div class="carte"><h1 style="font-size:19px">Mes commandes</h1><ul class="historique">';
       hist.forEach(function (x) {
-        h += '<li>' + esc(x.campagne) + ' : <b>' + prix(x.montant) + '</b>' + (x.paye ? ' — payée' : '') + '</li>';
+        h += '<li>' + esc(x.campagne) + (x.ferme && fermesListe().length > 1 ? ' <small style="color:var(--texte-doux)">(' + esc(x.ferme) + ')</small>' : '') + ' : <b>' + prix(x.montant) + '</b>' + (x.paye ? ' — payée' : '') + '</li>';
       });
       h += '</ul></div>';
     }
@@ -187,7 +192,8 @@
 
   // Commande d'une campagne close : en attente de pesée, puis montant exact à payer
   function carteDerniere(dc) {
-    var h = '<section class="carte"><h1 style="font-size:20px">Ma commande « ' + esc(dc.campagne) + ' »</h1>';
+    var h = '<section class="carte"><h1 style="font-size:20px">Ma commande « ' + esc(dc.campagne) + ' »</h1>' +
+      (dc.ferme && fermesListe().length > 1 ? '<p style="margin:-4px 0 10px;color:var(--texte-doux);font-weight:700">' + esc(dc.ferme) + '</p>' : '');
     if (!dc.prete) {
       h += '<div class="bandeau info" style="margin:0 0 12px">Jean-Paul prépare votre commande et pèse les fromages à la coupe. Vous recevrez par mail le montant exact à payer : rien à régler pour l’instant.</div>';
     }
@@ -217,13 +223,29 @@
         } else {
           h += '<p>Jean-Paul vous indiquera ses coordonnées bancaires.</p>';
         }
-        h += '<div class="etiq">À écrire dans le libellé du virement</div><div class="ref"><div class="val" id="ref">' + esc(dc.reference) + '</div>' +
-          '<button type="button" class="petit-bouton" id="copier">Copier</button></div>' +
+        h += '<div class="etiq">À écrire dans le libellé du virement</div><div class="ref"><div class="val">' + esc(dc.reference) + '</div>' +
+          '<button type="button" class="petit-bouton" data-copier="' + esc(dc.reference) + '">Copier</button></div>' +
           '';
       }
       h += '</section>';
     }
     return h;
+  }
+
+  // ---------- Plusieurs commandes ouvertes (une par ferme) : le gourmet choisit ----------
+  function choixCampagnes() {
+    var l = (data && data.campagnes_ouvertes) || [];
+    if (l.length < 2) return '';
+    var h = '<section class="carte choix-ferme"><h2>' + (l.length === 2 ? 'Deux' : l.length) + ' commandes sont ouvertes</h2><p>Chaque ferme a sa commande, sa date de fin et sa livraison. Choisissez :</p>';
+    l.forEach(function (x) {
+      var choisi = data.campagne && x.id === data.campagne.id;
+      h += '<button type="button" class="point" data-campagne="' + x.id + '" aria-pressed="' + choisi + '">' +
+        '<span class="rond" aria-hidden="true"></span><span><b>' + esc(x.ferme) + '</b>' +
+        '<small style="display:block">' + esc(x.nom) + ' · fin le ' + esc(jourLong(new Date(x.cloture))) + (x.livraison ? ' · livraison ' + esc(dateSimple(x.livraison)) : '') + '</small>' +
+        (x.commande ? '<small class="deja">✓ Commandé : ' + esc(prix(x.commande.montant)) + '</small>' : '<small class="pas-encore">Pas encore commandé</small>') +
+        '</span></button>';
+    });
+    return h + '</section>';
   }
 
   // ---------- Calculs ----------
@@ -251,8 +273,10 @@
     var d = data, c = d.campagne, fin = new Date(c.cloture);
     var h = '';
     // Commande précédente pesée mais pas encore payée : on la rappelle en haut
-    if (derniere && derniere.prete && !derniere.paye) h += carteDerniere(derniere);
+    h += dernieres.filter(function (x) { return x.prete && !x.paye; }).map(carteDerniere).join('');
+    h += choixCampagnes();
     h += '<section class="carte"><h1>' + esc(c.nom) + '</h1>';
+    if (c.ferme && fermesListe().length > 1) h += '<p class="message" style="font-weight:800;color:var(--canard-fonce,#0B6E78);margin-top:-4px">' + esc(c.ferme) + '</p>';
     if (c.message) h += '<p class="message">' + esc(c.message) + '</p>';
     if (d.reglages && d.reglages.signature) h += '<p class="message">' + esc(d.reglages.signature) + '</p>';
     h += '<button type="button" class="bouton second pdf" data-pdf>' +
@@ -365,9 +389,10 @@
     var pt = d.points.filter(function (p) { return p.id === cmd.point_id; })[0];
     var h = '';
     if (alerte) h += '<div class="bandeau ' + alerte.type + '" role="alert">' + alerte.html + '</div>';
-    if (derniere && derniere.prete && !derniere.paye) h += carteDerniere(derniere);
+    h += dernieres.filter(function (x) { return x.prete && !x.paye; }).map(carteDerniere).join('');
+    h += choixCampagnes();
     h += '<section class="carte"><div class="coche" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>' +
-      '<h1>Merci ' + esc(d.gourmet.prenom) + ' !</h1><p>Votre commande « ' + esc(c.nom) + ' » est bien enregistrée.</p>';
+      '<h1>Merci ' + esc(d.gourmet.prenom) + ' !</h1><p>Votre commande « ' + esc(c.nom) + ' »' + (c.ferme && fermesListe().length > 1 ? ' (' + esc(c.ferme) + ')' : '') + ' est bien enregistrée.</p>';
     var gpes = lignesParFerme(cmd.lignes, function (l) { var e = portionsParId[l.portion_id]; return l.ferme_id || (e && e.produit.ferme_id); });
     gpes.forEach(function (gp) {
       h += titreFermeRecap(gp.id, gpes.length > 1);
@@ -404,7 +429,7 @@
     var lignes = Object.keys(qte).filter(function (id) { return qte[id] > 0; })
       .map(function (id) { return { portion_id: Number(id), quantite: qte[id] }; });
     envoiEnCours = true; majPied();
-    rpc('valider_commande', { p_jeton: jeton, p_point_id: point, p_lignes: lignes, p_commentaire: commentaire })
+    rpc('valider_commande', { p_jeton: jeton, p_point_id: point, p_lignes: lignes, p_commentaire: commentaire, p_campagne_id: data.campagne.id })
       .then(function (r) {
         envoiEnCours = false;
         if (r.ok) { stocker('fjp_point', String(point)); alerte = null; return charger('apres'); }
@@ -493,6 +518,14 @@
   app.addEventListener('click', function (e) {
     var t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.campagne) {
+      var idc = Number(t.dataset.campagne);
+      if (data.campagne && idc === data.campagne.id) return;
+      if (vue === 'bon' && modifie() && !window.confirm('Votre commande n’est pas validée. Changer de ferme quand même ? Vos quantités seront perdues.')) return;
+      campagneVoulue = idc; alerte = null; grandsOuverts = {};
+      app.innerHTML = '<p class="chargement">Chargement…</p>';
+      charger(); window.scrollTo(0, 0); return;
+    }
     if (t.dataset.grands) { grandsOuverts[t.dataset.grands] = true; var y = window.scrollY; afficher(); window.scrollTo(0, y); return; }
     if (t.dataset.plus) { qte[t.dataset.plus] = (qte[t.dataset.plus] || 0) + 1; majPortion(t.dataset.plus); return; }
     if (t.dataset.moins) { qte[t.dataset.moins] = Math.max(0, (qte[t.dataset.moins] || 0) - 1); majPortion(t.dataset.moins); return; }
@@ -513,15 +546,15 @@
     if (t.dataset.pdf !== undefined) { telechargerPdf(t); return; }
     if (t.id === 'valider') { valider(); return; }
     if (t.id === 'modifier') { vue = 'bon'; alerte = null; afficher(); window.scrollTo(0, 0); return; }
-    if (t.id === 'copier') {
-      var ref = document.getElementById('ref').textContent;
+    if (t.dataset.copier) {
+      var ref = t.dataset.copier;
       var fait = function () { t.textContent = 'Copié !'; setTimeout(function () { t.textContent = 'Copier'; }, 2000); };
       if (navigator.clipboard) navigator.clipboard.writeText(ref).then(fait, function () {});
       return;
     }
     if (t.id === 'annuler') {
       if (!window.confirm('Annuler votre commande ? Vous pourrez en refaire une tant que la commande est ouverte.')) return;
-      rpc('annuler_commande', { p_jeton: jeton }).then(function () {
+      rpc('annuler_commande', { p_jeton: jeton, p_campagne_id: data.campagne.id }).then(function () {
         alerte = { type: 'info', html: 'Votre commande a été annulée.' };
         return charger();
       }).then(function () { if (data && data.campagne) { vue = 'bon'; afficher(); } });

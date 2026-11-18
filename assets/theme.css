@@ -47,3 +47,9 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--fromage); outli
 .ferme-tete .ferme-sur { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--texte-doux); }
 .ferme-tete h2 { margin: 2px 0 0; font-size: 22px; font-weight: 800; color: var(--texte); }
 .recap-ferme { margin: 14px 0 2px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--canard-fonce, #0B6E78); }
+/* 18/11 : une commande par ferme — choix de la ferme en haut du bon */
+.choix-ferme h2 { margin: 0 0 4px; font-size: 19px; }
+.choix-ferme p { margin: 0 0 10px; color: var(--texte-doux); font-size: 15px; }
+.choix-ferme .point { margin-bottom: 8px; }
+.choix-ferme small.deja { color: #1E7A46; font-weight: 700; }
+.choix-ferme small.pas-encore { color: #8A5A00; font-weight: 700; }

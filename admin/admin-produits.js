@@ -24,6 +24,9 @@
     var F = window.FJP, api = F.api, esc = F.esc, prix = F.prix, toast = F.toast, app = F.app;
     var campagne = F.campagne();
     var cid = campagne ? campagne.id : null;
+    var fermeCamp = campagne ? campagne.ferme_id : null;
+    // Au changement de campagne, on montre d'abord les produits de sa ferme
+    if (fermeCamp && vueProduits.derniere !== cid) { filtreFerme = String(fermeCamp); vueProduits.derniere = cid; }
 
     return Promise.all([
       api('categories?select=*&order=ordre,id'),
@@ -64,7 +67,7 @@
       }
 
       function formFiche(pr, pfx) {
-        pr = pr || { lait: 'vache', transport: true, ferme_id: filtreFerme !== 'toutes' ? Number(filtreFerme) : (fermesActives()[0] || {}).id };
+        pr = pr || { lait: 'vache', transport: true, ferme_id: filtreFerme !== 'toutes' ? Number(filtreFerme) : (fermeCamp || (fermesActives()[0] || {}).id) };
         var choixFermes = fermes.filter(function (f) { return f.actif || f.id === pr.ferme_id; });
         return '<div class="champ"><label for="' + pfx + 'ferme">Ferme</label><select id="' + pfx + 'ferme">' +
           choixFermes.map(function (f) { return '<option value="' + f.id + '"' + (f.id === pr.ferme_id ? ' selected' : '') + '>' + esc(f.nom) + '</option>'; }).join('') + '</select></div>' +
@@ -108,14 +111,14 @@
             '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>' +
             'Liste Produits (PDF)</button></div>' : '') +
           '<section class="carte"><h1 style="font-size:22px">Produits et prix</h1>' +
-          (campagne ? '<p style="margin:0;color:var(--texte-doux);font-size:14px">Prix de la campagne « ' + esc(campagne.nom) + ' ». Les commandes déjà passées gardent leur prix.</p>'
+          (campagne ? '<p style="margin:0;color:var(--texte-doux);font-size:14px">Prix de la campagne « ' + esc(campagne.nom) + ' »' + (fermes.length > 1 ? ' (' + esc(nomFerme(fermeCamp)) + ')' : '') + '. Les commandes déjà passées gardent leur prix.</p>'
                     : '<p style="margin:0">Aucune campagne en cours : vous pouvez modifier les fiches des produits, les prix se règlent dans une campagne.</p>') +
           '<div class="actions" style="margin:12px 0 0"><button class="bouton second" type="button" data-nouveau>' + (nouveauOuvert ? 'Fermer' : '+ Nouveau produit') + '</button>' +
             '</div>' +
             (cid ? '<p style="margin:8px 0 0;font-size:13px;color:var(--texte-doux)">' + 'La liste PDF se met à jour toute seule à chaque changement de produit ou de prix : c’est elle qui est jointe aux mails, et les gourmets peuvent la télécharger depuis leur bon de commande. Le bouton « Liste Produits » la télécharge sur votre téléphone.' + '</p>' : '');
         if (nouveauOuvert) {
           h += '<div style="margin-top:12px">' + formFiche(null, 'nv-') +
-            (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne en cours</label>' : '') +
+            (cid ? '<label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="nv-proposer" checked> Le proposer dans la campagne « ' + esc(campagne.nom) + ' » (si c’est la même ferme)</label>' : '') +
             '<button class="bouton" type="button" data-creer>Créer le produit</button></div>';
         }
         h += '</section>';
@@ -158,13 +161,14 @@
           h += '<section class="categorie"><h2>' + esc(c.nom) + '</h2><div class="liste">';
           ps.forEach(function (pr) {
             var o = offreDe[pr.id];
-            var etat = !cid ? '' : (!o ? 'Pas proposé' : (o.retire ? 'Retiré' : 'Proposé'));
+            var autreFerme = cid && pr.ferme_id !== fermeCamp && !o;
+            var etat = !cid || autreFerme ? '' : (!o ? 'Pas proposé' : (o.retire ? 'Retiré' : 'Proposé'));
             h += '<div><div class="ligne" style="flex-wrap:wrap"><span class="txt"><b>' + esc(pr.nom) + '</b>' +
               '<small>' + esc(LAITS[pr.lait] || '') + (pr.transport ? '' : ' · prix net livré') + (cid && o ? '<br>' + esc(resume(pr, o)) : '') + '</small></span>' +
               (etat ? '<span class="pastille' + (etat === 'Proposé' ? ' discrete' : '') + '">' + etat + '</span>' : '') +
               '<span style="display:flex;gap:6px;width:100%;justify-content:flex-end">' +
               '<button class="btn clair" type="button" data-ouvrir-pr="' + pr.id + '">' + (ouvert === pr.id ? 'Fermer' : 'Modifier') + '</button>' +
-              (cid ? '<button class="btn' + (etat === 'Proposé' ? ' rouge' : '') + '" type="button" data-proposer="' + pr.id + '">' + (etat === 'Proposé' ? 'Ne plus proposer' : 'Proposer') + '</button>' : '') +
+              (cid && !autreFerme ? '<button class="btn' + (etat === 'Proposé' ? ' rouge' : '') + '" type="button" data-proposer="' + pr.id + '">' + (etat === 'Proposé' ? 'Ne plus proposer' : 'Proposer') + '</button>' : '') +
               '</span></div>';
             if (ouvert === pr.id) {
               var pfx = 'pr' + pr.id + '-';
@@ -188,6 +192,8 @@
                   '<div class="grille2"><div class="champ"><label for="of' + o.id + '-stock">Stock maximum (kg)</label><input id="of' + o.id + '-stock" inputmode="decimal" value="' + (o.stock_g ? String(o.stock_g / 1000).replace('.', ',') : '') + '"></div>' +
                   '<div class="champ"><label for="of' + o.id + '-min">Minimum de la ferme (kg)</label><input id="of' + o.id + '-min" inputmode="decimal" value="' + (o.minimum_g ? String(o.minimum_g / 1000).replace('.', ',') : '') + '"></div></div>' +
                   '<button class="btn clair" type="button" data-offre-enr="' + o.id + '">Enregistrer les limites</button>';
+              } else if (cid && pr.ferme_id !== fermeCamp) {
+                h += '<p style="margin-top:14px">Ce produit vient de la ' + esc(nomFerme(pr.ferme_id)) + ' : ses prix se règlent dans une campagne de cette ferme (choisissez-la en haut de l’écran, ou créez-la dans « Campagnes »).</p>';
               } else if (cid) {
                 h += '<p style="margin-top:14px">Pour régler les prix, proposez d’abord ce produit dans la campagne.</p>';
               }
@@ -389,7 +395,7 @@
           b.disabled = true;
           api('produits', { method: 'POST', body: fiche }).then(function (rp) {
             var pr = rp[0];
-            if (cid && coche('nv-proposer')) return api('offres', { method: 'POST', body: { campagne_id: cid, produit_id: pr.id, ordre: pr.ordre } }).then(function () { return pr; });
+            if (cid && coche('nv-proposer') && pr.ferme_id === fermeCamp) return api('offres', { method: 'POST', body: { campagne_id: cid, produit_id: pr.id, ordre: pr.ordre } }).then(function () { return pr; });
             return pr;
           }).then(function (pr) { nouveauOuvert = false; ouvert = pr.id; return recharger('Produit créé : ajoutez maintenant ses portions et ses prix.'); })
             .catch(function (er) { b.disabled = false; echec(er); });

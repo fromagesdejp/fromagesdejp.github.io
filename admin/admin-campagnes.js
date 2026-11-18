@@ -39,9 +39,13 @@
 
     return Promise.all([
       api('campagnes?select=*,points_livraison(*),commandes(count)&order=cloture.desc'),
-      api('gourmets?select=id,prenom,nom&actif=eq.true&order=nom,prenom')
+      api('gourmets?select=id,prenom,nom&actif=eq.true&order=nom,prenom'),
+      api('fermes?select=*&order=ordre,id')
     ]).then(function (rr) {
-      var camps = rr[0], gourmets = rr[1];
+      var camps = rr[0], gourmets = rr[1], fermes = rr[2];
+      function nomFerme(id) { var f = fermes.filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
+      var plusieursFermes = fermes.filter(function (f) { return f.actif; }).length > 1 || camps.some(function (c) { return c.ferme_id !== (camps[0] || {}).ferme_id; });
+      var nvFerme = null; // ferme choisie pour la nouvelle campagne
       var choixOuvert = false;
       camps.forEach(function (c) { c.points_livraison.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); });
       var courante = F.campagne();
@@ -51,15 +55,23 @@
         var c = camps.filter(function (x) { return x.id === choisie; })[0];
         var h = '<div class="filtres" style="margin-top:16px">';
         camps.forEach(function (x) {
-          h += '<button type="button" data-choisir="' + x.id + '" aria-pressed="' + (x.id === choisie) + '">' + esc(x.nom) + ' · ' + esc(STATUTS[x.statut]) + '</button>';
+          h += '<button type="button" data-choisir="' + x.id + '" aria-pressed="' + (x.id === choisie) + '">' + (plusieursFermes ? esc(nomFerme(x.ferme_id)) + ' — ' : '') + esc(x.nom) + ' · ' + esc(STATUTS[x.statut]) + '</button>';
         });
         h += '<button type="button" data-nouvelle>' + (nouvelleOuverte ? 'Fermer' : '+ Préparer une nouvelle campagne') + '</button></div>';
 
         if (nouvelleOuverte) {
+          var cSel = camps.filter(function (x) { return x.id === choisie; })[0];
+          if (!nvFerme) nvFerme = cSel ? cSel.ferme_id : (fermes[0] || {}).id;
+          var sources = camps.filter(function (x) { return x.ferme_id === nvFerme; });
+          var autres = camps.filter(function (x) { return x.ferme_id !== nvFerme; });
           h += '<section class="carte"><h1 style="font-size:20px">Nouvelle campagne</h1>' +
-            '<p style="font-size:14px;color:var(--texte-doux)">Elle reprend les produits, les prix, les points de livraison et le message de la campagne choisie. Vous pourrez tout ajuster ensuite. Elle reste invisible pour les gourmets jusqu’à son ouverture.</p>' +
+            '<p style="font-size:14px;color:var(--texte-doux)">Chaque ferme a ses propres campagnes (dates, livraison, produits). La nouvelle campagne reprend les points de livraison et le message de la campagne copiée, et ses produits et prix si elle est de la même ferme. Elle reste invisible pour les gourmets jusqu’à son ouverture.</p>' +
+            '<div class="champ"><label for="nv-ferme">Ferme</label><select id="nv-ferme">' +
+            fermes.filter(function (f) { return f.actif; }).map(function (f) { return '<option value="' + f.id + '"' + (f.id === nvFerme ? ' selected' : '') + '>' + esc(f.nom) + '</option>'; }).join('') + '</select></div>' +
             '<div class="champ"><label for="nv-source">Copier la campagne</label><select id="nv-source">' +
-            camps.map(function (x) { return '<option value="' + x.id + '"' + (x.id === choisie ? ' selected' : '') + '>' + esc(x.nom) + '</option>'; }).join('') + '</select></div>' +
+            sources.map(function (x, i) { return '<option value="' + x.id + '"' + (i === 0 ? ' selected' : '') + '>' + esc(x.nom) + ' (produits et prix repris)</option>'; }).join('') +
+            autres.map(function (x) { return '<option value="' + x.id + '">' + esc(nomFerme(x.ferme_id)) + ' — ' + esc(x.nom) + ' (points et message seulement)</option>'; }).join('') +
+            '<option value=""' + (sources.length ? '' : ' selected') + '>Aucune : partir de zéro</option></select></div>' +
             '<div class="champ"><label for="nv-nom">Nom</label><input id="nv-nom" placeholder="Ex. : Commande de printemps 2027"></div>' +
             '<div class="grille2"><div class="champ"><label for="nv-ouv">Ouverture automatique</label><input id="nv-ouv" type="datetime-local"></div>' +
             '<div class="champ"><label for="nv-clo">Fin de commande</label><input id="nv-clo" type="datetime-local"></div></div>' +
@@ -71,6 +83,7 @@
         var nb = (c.commandes && c.commandes[0] && c.commandes[0].count) || 0;
         h += '<section class="carte"><div style="display:flex;gap:8px;align-items:center"><h1 style="flex-grow:1;font-size:22px">' + esc(c.nom) + '</h1>' +
           '<span class="pastille discrete">' + esc(STATUTS[c.statut]) + '</span></div>' +
+          (plusieursFermes ? '<p style="margin:0;font-weight:800;color:var(--canard)">' + esc(nomFerme(c.ferme_id)) + '</p>' : '') +
           '<p style="margin:0 0 12px;font-size:14px;color:var(--texte-doux)">' + nb + ' commande(s) enregistrée(s)</p>' +
           '<div class="champ"><label for="c-nom">Nom</label><input id="c-nom" value="' + esc(c.nom) + '"></div>' +
           '<div class="champ"><label for="c-msg">Message d’accueil (affiché en haut du bon de commande)</label><textarea id="c-msg" rows="4">' + esc(c.message || '') + '</textarea></div>' +
@@ -124,7 +137,7 @@
       }
       function echec(e) {
         var m = e.message || '';
-        if (/une_seule_campagne_ouverte|duplicate/i.test(m)) m = 'Une autre campagne est déjà ouverte : clôturez-la d’abord.';
+        if (/une_campagne_ouverte_par_ferme|une_seule_campagne_ouverte|duplicate/i.test(m)) m = 'Une autre campagne de cette ferme est déjà ouverte : clôturez-la d’abord.';
         else if (/foreign key/i.test(m)) m = 'Impossible : des commandes utilisent ce point de livraison.';
         else if (/check/i.test(m)) m = 'Vérifiez les dates : l’ouverture doit être avant la fin de commande.';
         toast('Erreur : ' + esc(m));
@@ -133,6 +146,13 @@
       dessiner();
       // Cocher / décocher les destinataires : enregistré tout de suite
       app.onchange = function (e) {
+        if (e.target.id === 'nv-ferme') {
+          var garde = { nom: val('nv-nom'), ouv: val('nv-ouv'), clo: val('nv-clo'), livr: val('nv-livr') };
+          nvFerme = Number(e.target.value); dessiner();
+          document.getElementById('nv-nom').value = garde.nom; document.getElementById('nv-ouv').value = garde.ouv;
+          document.getElementById('nv-clo').value = garde.clo; document.getElementById('nv-livr').value = garde.livr;
+          return;
+        }
         var c3 = camps.filter(function (y) { return y.id === choisie; })[0];
         if (!c3) return;
         var nouv = null;
@@ -158,8 +178,8 @@
           if (!nom || !clo) { toast('Indiquez au moins le nom et la fin de commande.'); return; }
           b.disabled = true;
           api('rpc/dupliquer_campagne', { method: 'POST', body: {
-            p_source: Number(val('nv-source')), p_nom: nom, p_ouverture: depuisChamp(val('nv-ouv')), p_cloture: clo, p_livraison: val('nv-livr') || null
-          } }).then(function (id) { choisie = id; nouvelleOuverte = false; return recharger('Campagne préparée : vérifiez les produits et les prix dans « Produits ».'); })
+            p_source: val('nv-source') ? Number(val('nv-source')) : null, p_ferme_id: Number(val('nv-ferme')) || null, p_nom: nom, p_ouverture: depuisChamp(val('nv-ouv')), p_cloture: clo, p_livraison: val('nv-livr') || null
+          } }).then(function (id) { choisie = id; nouvelleOuverte = false; nvFerme = null; try { localStorage.setItem('fjp_campagne', String(id)); } catch (e2) {} return recharger('Campagne préparée : vérifiez les produits et les prix dans « Produits ».'); })
             .catch(function (er) { b.disabled = false; echec(er); });
           return;
         }

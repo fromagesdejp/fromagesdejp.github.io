@@ -11,7 +11,7 @@
     var FJP = window.FJP, esc = FJP.esc;
     var place = document.getElementById('ma-commande');
     if (!place) return;
-    FJP.api('rpc/ma_commande', { method: 'POST', body: {} }).then(function (r) {
+    FJP.api('rpc/ma_commande', { method: 'POST', body: campagneMa() }).then(function (r) {
       if (!document.body.contains(place) || !r.campagne) return;
       var c = r.commande;
       place.innerHTML = '<button type="button" class="carte ma-commande" id="ouvrir-ma-commande">' +
@@ -22,18 +22,28 @@
     }).catch(function () {});
   };
 
+  // « Ma commande » : celle de la campagne choisie dans l'appli
+  function campagneMa() {
+    var c = window.FJP.campagne();
+    return c && c.statut === 'ouverte' ? { p_campagne_id: c.id } : {};
+  }
+  // Le bon s'ouvre sur la campagne choisie dans l'appli (une par ferme), si elle est ouverte
+  function campagneDuBon() {
+    var c = window.FJP.campagne();
+    return c && c.statut === 'ouverte' ? '&c=' + c.id : '';
+  }
   function afficherBon(jeton, titre, retour) {
     var FJP = window.FJP, esc = FJP.esc;
     FJP.app.innerHTML = '<div class="barre-bon"><button type="button" class="btn clair" id="retour-bon">‹ Retour</button>' +
       '<span>' + esc(titre) + '</span></div>' +
-      '<iframe class="bon-dans-appli" title="Bon de commande" src="../?k=' + encodeURIComponent(jeton) + '&appli=1&v=' + Date.now() + '"></iframe>';
+      '<iframe class="bon-dans-appli" title="Bon de commande" src="../?k=' + encodeURIComponent(jeton) + '&appli=1' + campagneDuBon() + '&v=' + Date.now() + '"></iframe>';
     document.getElementById('retour-bon').onclick = function () { FJP.aller(retour || 'accueil'); };
   }
 
   // Mon bon de commande
   window.FJP_VUES.macommande = function () {
     var FJP = window.FJP, esc = FJP.esc;
-    return FJP.api('rpc/ma_commande', { method: 'POST', body: {} }).then(function (r) {
+    return FJP.api('rpc/ma_commande', { method: 'POST', body: campagneMa() }).then(function (r) {
       if (!r.a_completer) { afficherBon(r.jeton, 'Ma commande'); return; }
       // Première fois : on crée sa fiche de gourmet
       FJP.app.innerHTML = '<form class="carte" id="form-moi"><h1 style="font-size:20px">Ma commande</h1>' +
@@ -44,7 +54,7 @@
       document.getElementById('form-moi').onsubmit = function (e) {
         e.preventDefault();
         var b = e.target.querySelector('button'); b.disabled = true;
-        FJP.api('rpc/ma_commande', { method: 'POST', body: { p_prenom: document.getElementById('moi-prenom').value, p_nom: document.getElementById('moi-nom').value } })
+        FJP.api('rpc/ma_commande', { method: 'POST', body: Object.assign(campagneMa(), { p_prenom: document.getElementById('moi-prenom').value, p_nom: document.getElementById('moi-nom').value }) })
           .then(function (r2) { afficherBon(r2.jeton, 'Ma commande'); })
           .catch(function (err) { b.disabled = false; FJP.toast('Erreur : ' + esc(err.message)); });
       };

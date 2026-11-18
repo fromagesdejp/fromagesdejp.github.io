@@ -153,7 +153,7 @@
       var h = tete +
         '<section class="acc-hero"><div class="acc-hero-tete"><span class="acc-statut' + (campagne.statut === 'ouverte' ? '' : ' ferme') + '">' + esc(STATUTS[campagne.statut] || '') + '</span>' +
         (campagne.livraison ? '<span class="acc-livr">' + ico('camion') + 'Livraison ' + esc(fmt(campagne.livraison, { day: 'numeric', month: 'short' })) + '</span>' : '') + '</div>' +
-        '<h1>' + esc(campagne.nom) + '</h1>' +
+        '<h1>' + esc(campagne.nom) + '</h1>' + (campagne.ferme && window.FJP.campagnes().length > 1 ? '<div style="font-weight:800;opacity:.9;margin:-4px 0 6px">' + esc(campagne.ferme.nom) + '</div>' : '') +
         '<div class="acc-reste">' + ico('horloge') + '<span>' + (reste ? 'Encore <b>' + reste + '</b> pour commander' : esc({ cloturee: 'Les commandes sont closes', preparation: 'Pas encore ouverte aux gourmets' }[campagne.statut] || 'La clôture est passée')) + '</span></div>' +
         '<p class="acc-cloture">Clôture ' + esc(fmt(campagne.cloture, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })) + '</p>' +
         '<div class="acc-jauge" aria-hidden="true"><span style="width:' + pct + '%"></span></div>' +

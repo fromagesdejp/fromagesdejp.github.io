@@ -127,7 +127,25 @@
   var vueCourante = location.hash.slice(1) || lire('fjp_vue') || 'accueil';
   if (location.hash) history.replaceState(null, '', location.pathname);
   var campagne = null;
+  var campagnes = [];   // campagnes en cours (une par ferme possible)
   var points = [];
+  // Barre « quelle campagne ? » sous les onglets (quand plusieurs fermes ont une campagne en cours)
+  var barreCamp = document.createElement('div');
+  barreCamp.id = 'choix-campagne'; barreCamp.className = 'filtres choix-campagne'; barreCamp.hidden = true;
+  app.parentNode.insertBefore(barreCamp, app);
+  barreCamp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-camp]'); if (!b) return;
+    stocker('fjp_campagne', b.dataset.camp); aller(vueCourante);
+  });
+  var VUES_CAMPAGNE = { accueil: 1, commandes: 1, paiements: 1, ferme: 1, produits: 1 };
+  function dessinerBarreCamp(vue) {
+    if (campagnes.length < 2 || !VUES_CAMPAGNE[vue]) { barreCamp.hidden = true; barreCamp.innerHTML = ''; return; }
+    barreCamp.hidden = false;
+    barreCamp.innerHTML = campagnes.map(function (c) {
+      return '<button type="button" data-camp="' + c.id + '" aria-pressed="' + (campagne && c.id === campagne.id) + '">' +
+        esc((c.ferme && c.ferme.nom) || '') + '<small>' + esc(c.nom) + ' · ' + esc(STATUTS[c.statut]) + '</small></button>';
+    }).join('');
+  }
 
   function aller(vue) {
     if (vue === 'pesee') vue = 'commandes'; // Commandes et Pesée ne font plus qu'une rubrique
@@ -139,7 +157,7 @@
     app.onclick = null; app.onchange = null; app.onkeydown = null;
     // L'accueil est dans admin-accueil.js (l'ancien reste en secours)
     var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: (window.FJP_VUES && window.FJP_VUES.pesee) || vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
-    chargerCampagne().then(f).catch(erreur);
+    chargerCampagne().then(function () { dessinerBarreCamp(vue); return f(); }).catch(erreur);
     window.scrollTo(0, 0);
   }
   onglets.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) aller(b.dataset.vue); });
@@ -152,10 +170,13 @@
   }
 
   function chargerCampagne() {
-    return api('campagnes?select=*&statut=neq.terminee&order=cloture.desc').then(function (l) {
+    return api('campagnes?select=*,ferme:fermes(nom,ordre)&statut=neq.terminee&order=cloture.desc').then(function (l) {
       var rang = { ouverte: 0, cloturee: 1, preparation: 2 };
-      l.sort(function (a, b) { return rang[a.statut] - rang[b.statut]; });
-      campagne = l[0] || null;
+      l.sort(function (a, b) { return (rang[a.statut] - rang[b.statut]) || (((a.ferme || {}).ordre || 0) - ((b.ferme || {}).ordre || 0)); });
+      campagnes = l;
+      // La campagne choisie dans la barre (gardée sur l'appareil), sinon la plus avancée
+      var voulue = Number(lire('fjp_campagne'));
+      campagne = l.filter(function (c) { return c.id === voulue; })[0] || l[0] || null;
       if (!campagne) { points = []; return; }
       return api('points_livraison?select=*&campagne_id=eq.' + campagne.id + '&order=ordre,id').then(function (p) { points = p; });
     });
@@ -513,13 +534,10 @@
       api('fermes?select=*&order=ordre,id')
     ]).then(function (res) {
       var tous = res[0], fermes = res[1];
-      // Fermes à montrer : les actives, et celles qui ont des commandes
+      // Le bon est celui de la ferme de la campagne (au cas où des produits d'une autre ferme y seraient, un bouton par ferme)
       var avec = {}; tous.forEach(function (r) { avec[r.ferme_id] = (avec[r.ferme_id] || 0) + 1; });
-      fermes = fermes.filter(function (f) { return f.actif || avec[f.id]; });
-      if (!fermes.some(function (f) { return f.id === fermeChoisie; })) {
-        var premiere = fermes.filter(function (f) { return avec[f.id]; })[0] || fermes[0];
-        fermeChoisie = premiere ? premiere.id : null;
-      }
+      fermes = fermes.filter(function (f) { return f.id === campagne.ferme_id || avec[f.id]; });
+      if (!fermes.some(function (f) { return f.id === fermeChoisie; }) || !avec[fermeChoisie]) fermeChoisie = campagne.ferme_id;
       var ferme = fermes.filter(function (f) { return f.id === fermeChoisie; })[0] || {};
       var rows = tous.filter(function (r) { return r.ferme_id === fermeChoisie; });
       var cats = [], parCat = {};
@@ -618,7 +636,7 @@
 
   // Outils partagés avec les autres fichiers de l'appli (ex. admin-produits.js)
   window.FJP = { api: api, esc: esc, prix: prix, toast: toast, kg: kg, app: app, nomG: nomG, aller: aller,
-    campagne: function () { return campagne; }, points: function () { return points; },
+    campagne: function () { return campagne; }, campagnes: function () { return campagnes; }, points: function () { return points; },
     recharger: function (msg) { aller(vueCourante); if (msg) toast(msg); return Promise.resolve(); } };
 
   // ---------- Démarrage ----------
