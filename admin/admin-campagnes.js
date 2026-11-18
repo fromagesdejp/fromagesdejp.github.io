@@ -46,6 +46,20 @@
       function nomFerme(id) { var f = fermes.filter(function (x) { return x.id === id; })[0]; return f ? f.nom : ''; }
       var plusieursFermes = fermes.filter(function (f) { return f.actif; }).length > 1 || camps.some(function (c) { return c.ferme_id !== (camps[0] || {}).ferme_id; });
       var nvFerme = null; // ferme choisie pour la nouvelle campagne
+      // Gourmets qui recevront le mail d'ouverture (invités de la campagne)
+      function invites(exclus) {
+        exclus = exclus || [];
+        return gourmets.filter(function (g) { return exclus.indexOf(g.id) < 0; });
+      }
+      function listeNoms(l) {
+        var noms = l.slice(0, 8).map(function (g) { return g.prenom + ' ' + String(g.nom || '').toUpperCase(); });
+        return noms.join(', ') + (l.length > 8 ? ' et ' + (l.length - 8) + ' autres' : '');
+      }
+      function phraseMail(l) {
+        return l.length === gourmets.length ? 'à TOUS les gourmets (' + l.length + ')' : 'à ' + l.length + ' gourmet' + (l.length > 1 ? 's' : '') + ' : ' + listeNoms(l);
+      }
+      // Ouverture tout de suite ou dans les 10 minutes (les ouvertures automatiques passent toutes les 5 minutes)
+      function bientot(iso) { return iso && new Date(iso).getTime() <= Date.now() + 10 * 60000; }
       var choixOuvert = false;
       camps.forEach(function (c) { c.nb_offres = (c.offres || []).filter(function (o) { return !o.retire && o.portions && o.portions.length; }).length; });
       camps.forEach(function (c) { c.points_livraison.sort(function (a, b) { return (a.ordre - b.ordre) || (a.id - b.id); }); });
@@ -74,7 +88,7 @@
             autres.map(function (x) { return '<option value="' + x.id + '">' + esc(nomFerme(x.ferme_id)) + ' — ' + esc(x.nom) + ' (points et message seulement)</option>'; }).join('') +
             '<option value=""' + (sources.length ? '' : ' selected') + '>Aucune : partir de zéro</option></select></div>' +
             '<div class="champ"><label for="nv-nom">Nom</label><input id="nv-nom" placeholder="Ex. : Commande de printemps 2027"></div>' +
-            '<div class="grille2"><div class="champ"><label for="nv-ouv">Ouverture automatique</label><input id="nv-ouv" type="datetime-local"></div>' +
+            '<div class="grille2"><div class="champ"><label for="nv-ouv">Ouverture automatique</label><input id="nv-ouv" type="datetime-local"><small style="display:block;font-size:12px;color:var(--texte-doux);margin-top:4px">Laissez vide pour ouvrir vous-même : aucun mail ne part avant.</small></div>' +
             '<div class="champ"><label for="nv-clo">Fin de commande</label><input id="nv-clo" type="datetime-local"></div></div>' +
             '<div class="champ"><label for="nv-livr">Livraison</label><input id="nv-livr" type="date"></div>' +
             '<button class="bouton" type="button" data-creer-camp>Préparer cette campagne</button></section>';
@@ -82,6 +96,13 @@
 
         if (!c) { app.innerHTML = h + '<div class="carte"><p>Aucune campagne.</p></div>'; return; }
         var nb = (c.commandes && c.commandes[0] && c.commandes[0].count) || 0;
+        // Ouverture programmée : rappel de qui recevra le mail
+        if (c.statut === 'preparation') {
+          var lI = invites(c.exclus);
+          h += '<div class="bandeau ' + (c.ouverture && bientot(c.ouverture) ? 'attention' : 'info') + '" style="margin:12px 16px 0">📧 ' + (c.ouverture
+            ? 'Ouverture automatique le <b>' + esc(new Date(c.ouverture).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) + '</b> : le mail d’ouverture partira alors ' + esc(phraseMail(lI)) + '.'
+            : 'Pas de date d’ouverture : aucun mail ne part tant que vous ne touchez pas « Ouvrir maintenant ». Il partira alors ' + esc(phraseMail(lI)) + '.') + '</div>';
+        }
         // Ce qui manque pour que les gourmets puissent commander
         var manque = [];
         if (!c.points_livraison.length) manque.push('aucun point de livraison (ajoutez-en un plus bas)');
@@ -192,6 +213,14 @@
         if (d.creerCamp !== undefined) {
           var nom = val('nv-nom'), clo = depuisChamp(val('nv-clo'));
           if (!nom || !clo) { toast('Indiquez au moins le nom et la fin de commande.'); return; }
+          var ouv = depuisChamp(val('nv-ouv'));
+          var src = camps.filter(function (y) { return y.id === Number(val('nv-source')); })[0];
+          var lInv = invites(src ? src.exclus : []);
+          var msgCreer;
+          if (!ouv) msgCreer = 'Créer « ' + nom + ' » ?\n\nSans date d’ouverture, elle reste en préparation : AUCUN mail ne part tant que vous ne touchez pas « Ouvrir maintenant ».';
+          else if (bientot(ouv)) msgCreer = '⚠️ ATTENTION : « ' + nom + ' » va s’ouvrir TOUT DE SUITE (dans moins de 5 minutes).\n\nLe mail d’ouverture partira ' + phraseMail(lInv) + '.\n\nPour choisir d’abord les gourmets invités, touchez « Annuler » et videz la date d’ouverture.\n\nCréer et ouvrir maintenant ?';
+          else msgCreer = 'Créer « ' + nom + ' » ?\n\nElle s’ouvrira toute seule le ' + new Date(ouv).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) + ', et le mail d’ouverture partira alors ' + phraseMail(lInv) + '.\n\nVous pourrez changer les invités d’ici là.';
+          if (!window.confirm(msgCreer)) return;
           b.disabled = true;
           api('rpc/dupliquer_campagne', { method: 'POST', body: {
             p_source: val('nv-source') ? Number(val('nv-source')) : null, p_ferme_id: Number(val('nv-ferme')) || null, p_nom: nom, p_ouverture: depuisChamp(val('nv-ouv')), p_cloture: clo, p_livraison: val('nv-livr') || null
@@ -203,6 +232,9 @@
           var corps = { nom: val('c-nom'), message: val('c-msg') || null, ouverture: depuisChamp(val('c-ouv')), cloture: depuisChamp(val('c-clo')),
             livraison: val('c-livr') || null, prochaine_commande: val('c-proch') || null };
           if (!corps.nom || !corps.cloture) { toast('Le nom et la fin de commande sont obligatoires.'); return; }
+          var cE = camps.filter(function (y) { return y.id === Number(d.enrCamp); })[0];
+          if (cE && cE.statut === 'preparation' && bientot(corps.ouverture) && new Date(corps.cloture) > new Date() &&
+              !window.confirm('⚠️ Avec cette date d’ouverture, « ' + corps.nom + ' » va s’ouvrir dans moins de 5 minutes.\n\nLe mail d’ouverture partira ' + phraseMail(invites(cE.exclus)) + '.\n\nEnregistrer quand même ?')) return;
           api('campagnes?id=eq.' + d.enrCamp, { method: 'PATCH', body: corps }).then(function () { return recharger('Campagne enregistrée'); }).catch(echec);
           return;
         }
@@ -239,7 +271,8 @@
         }
         if (d.statut) {
           var c2 = camps.filter(function (y) { return y.id === choisie; })[0];
-          var textes = { ouverte: 'Ouvrir « ' + c2.nom + ' » ? Les gourmets pourront commander.', cloturee: 'Clôturer « ' + c2.nom + ' » maintenant ? Les gourmets ne pourront plus commander.',
+          var dejaMail = c2.statut === 'cloturee'; // une campagne rouverte ne renvoie pas le mail d'ouverture à ceux qui l'ont déjà reçu
+          var textes = { ouverte: 'Ouvrir « ' + c2.nom + ' » ? Les gourmets pourront commander.' + (dejaMail ? '' : '\n\n📧 Le mail d’ouverture partira tout de suite ' + phraseMail(invites(c2.exclus)) + '.'), cloturee: 'Clôturer « ' + c2.nom + ' » maintenant ? Les gourmets ne pourront plus commander.',
             terminee: 'Terminer « ' + c2.nom + ' » ? Elle sera archivée.' };
           if (!window.confirm(textes[d.statut])) return;
           var corps2 = { statut: d.statut };
