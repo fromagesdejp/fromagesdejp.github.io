@@ -129,10 +129,20 @@
           '<button class="btn rouge" type="button" data-po-sup="' + po.id + '">Supprimer</button></div></div>';
       }
 
+      // Fermes dont les produits sont dans la liste PDF de la campagne
+      function fermesPdf() {
+        var l = fermes.filter(function (f) { return produits.some(function (p) { var o = offreDe[p.id]; return p.actif && p.ferme_id === f.id && o && !o.retire && o.portions.length; }); });
+        if (!l.length && fermeCamp) l = fermes.filter(function (f) { return f.id === fermeCamp; });
+        return l;
+      }
+      function titrePdf() {
+        var l = fermesPdf();
+        return l.length === 1 ? 'Liste Produits — ' + l[0].nom + ' (PDF)' : 'Tous les produits (PDF)';
+      }
       function dessiner() {
         var h = (cid ? '<div style="margin:16px 16px 0"><button class="bouton" type="button" data-pdf style="width:100%;font-size:18px;padding:16px;display:flex;align-items:center;justify-content:center;gap:10px">' +
             '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>' +
-            'Liste Produits (PDF)</button></div>' : '') +
+            esc(titrePdf()) + '</button></div>' : '') +
           '<section class="carte"><h1 style="font-size:22px">Produits et prix</h1>' +
           (campagne ? '<p style="margin:0;color:var(--texte-doux);font-size:14px">Prix de la campagne « ' + esc(campagne.nom) + ' »' + (fermes.length > 1 ? ' (' + esc(nomFerme(fermeCamp)) + ')' : '') + '. Les commandes déjà passées gardent leur prix.</p>'
                     : '<p style="margin:0">Aucune campagne en cours : vous pouvez modifier les fiches des produits, les prix se règlent dans une campagne.</p>') +
@@ -281,7 +291,7 @@
         var h = '<div style="font-family:Nunito,Arial,sans-serif;color:#12313F;width:720px;padding:24px;background:#fff">' +
           '<div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #F5A623;padding-bottom:12px">' +
           '<img src="../images/logo.png" style="width:56px;height:56px"><div><div style="font-size:24px;font-weight:800;color:#0B6E78">Les Fromages Jean-Paul</div>' +
-          '<div style="font-size:15px">' + esc(campagne.nom) + '</div></div></div>' +
+          '<div style="font-size:15px">' + esc(campagne.nom) + (fermesPdf().length === 1 ? ' · <b>' + esc(fermesPdf()[0].nom) + '</b>' : '') + '</div></div></div>' +
           '<p style="font-size:14px;margin:12px 0">Fin de commande : <b>' + esc(dateFr(campagne.cloture, true)) + '</b>' + (campagne.livraison ? ' · Livraison : <b>' + esc(dateFr(campagne.livraison)) + '</b>' : '') + '<br>' +
           'Prix transport compris. Fromages à la coupe : prix estimé, calculé au poids réel à l’arrivée. Sous réserve de disponibilité.</p>';
         var proposes = produits.filter(function (p) { var o = offreDe[p.id]; return p.actif && o && !o.retire && o.portions.length; });
@@ -336,7 +346,7 @@
         }).then(function (blob) {
           // Téléchargement immédiat sur l'appareil (sauf mise à jour automatique)
           if (!silencieux) {
-          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Liste des fromages.pdf';
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (fermesPdf().length === 1 ? 'Liste des fromages - ' + fermesPdf()[0].nom : 'Liste de tous les fromages') + '.pdf';
           document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
           }
           // (l'appel à la base renouvelle la connexion si besoin, avant l'envoi du fichier)

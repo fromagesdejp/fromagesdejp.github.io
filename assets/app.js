@@ -232,6 +232,12 @@
     return h;
   }
 
+  // Bouton de la liste PDF : avec le nom de la ferme quand il y en a plusieurs (évite les confusions)
+  function libellePdf() {
+    var c = data && data.campagne;
+    return c && c.ferme && fermesListe().length > 1 ? 'Liste des produits — ' + c.ferme + ' (PDF)' : 'Liste des produits (PDF)';
+  }
+
   // ---------- Plusieurs commandes ouvertes (une par ferme) : le gourmet choisit ----------
   function choixCampagnes() {
     var l = (data && data.campagnes_ouvertes) || [];
@@ -281,7 +287,7 @@
     if (d.reglages && d.reglages.signature) h += '<p class="message">' + esc(d.reglages.signature) + '</p>';
     h += '<button type="button" class="bouton second pdf" data-pdf>' +
       '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="m9 15 3 3 3-3"/></svg>' +
-      '<span>Liste des produits (PDF)</span></button>';
+      '<span>' + esc(libellePdf()) + '</span></button>';
     h += '<div class="dates">' +
       '<div class="date fin"><span class="etiq">Fin de commande</span><b>' + esc(jourLong(fin)) + ', ' + esc(heure(fin)) + '</b><span>' + esc(resteAvant(fin)) + '</span></div>' +
       '<div class="date livr"><span class="etiq">Livraison</span><b>' + esc(dateSimple(c.livraison)) + '</b><span>Merci de respecter l’horaire</span></div>' +
@@ -513,11 +519,11 @@
         html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' }, pagebreak: { mode: ['css', 'legacy'] } })
         .from(boite.firstChild).outputPdf('blob');
     }).then(function (blob) {
-      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Liste des fromages.pdf';
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (data.campagne && data.campagne.ferme && fermesListe().length > 1 ? 'Liste des fromages - ' + data.campagne.ferme : 'Liste des fromages') + '.pdf';
       document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 10000);
     }).catch(function () {
       window.alert('La liste n’a pas pu être préparée. Vérifiez votre connexion Internet et réessayez.');
-    }).then(function () { boite.remove(); bouton.disabled = false; texte.textContent = 'Liste des produits (PDF)'; });
+    }).then(function () { boite.remove(); bouton.disabled = false; texte.textContent = libellePdf(); });
   }
 
   app.addEventListener('click', function (e) {
