@@ -38,7 +38,7 @@ table.bon tr.cat td { background: var(--canard-clair); color: var(--canard-fonce
 table.bon td.n { text-align: right; font-weight: 800; white-space: nowrap; }
 .erreur-txt { color: var(--rouge); font-size: 14px; }
 @media print {
-  .entete, .onglets, .non-imprime, .toast { display: none !important; }
+  .entete, .onglets, .non-imprime, .toast, .choix-campagne { display: none !important; }
   body { background: #fff; }
   .carte { box-shadow: none; margin: 0; padding: 0; }
   .une-ligne { white-space: nowrap; }
