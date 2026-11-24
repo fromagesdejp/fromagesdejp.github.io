@@ -552,27 +552,37 @@
         p.poids += r.poids_total_g;
         if (r.mode === 'coupe') p.coupe = true;
       });
-      // Moitiés (ex. St-Nectaire) : la ferme ne vend que des entiers. Deux moitiés du même affinage
-      // deviennent un entier ; s'il reste une moitié, elle reste indiquée (JP prendra l'autre moitié).
-      var MOITIE = /\s*(moitié|moitie|demi|½)\s*/i;
+      // Pièces vendues entières ou en moitiés (ex. St-Nectaire) : une ligne par affinage (4, 6, 8 semaines…),
+      // le tout compté en entiers pour la ferme, avec le nombre de demis sur la même ligne.
+      var MOITIE = /moitié|moitie|demi|½/i;
+      function affinage(libelle) {
+        return libelle.replace(/(saint|st)[\s-]*nectaire/ig, '').replace(/moitiés?|moities?|demis?|½|entiers?|entières?/ig, '')
+          .replace(/\s*·\s*/g, ' ').replace(/\s+/g, ' ').replace(/^[\s·,-]+|[\s·,-]+$/g, '') || 'entier';
+      }
+      function nb(n) { return String(n).replace('.', ','); }
       cats.forEach(function (c) {
+        var produits = [];
         c.produits.forEach(function (p) {
-          p.lignes.forEach(function (l, i) {
-            if (l.mode === 'coupe' || !MOITIE.test(l.portion) || l.quantite < 2) return;
-            var nomEntier = l.portion.replace(MOITIE, function (m) { return m.replace(/moitié|moitie|demi|½/i, 'entier'); });
-            var entier = p.lignes.filter(function (x) { return x !== l && x.portion.toLowerCase() === nomEntier.toLowerCase(); })[0];
-            if (!entier) { entier = { portion: nomEntier, quantite: 0, mode: l.mode }; p.lignes.splice(i, 0, entier); }
-            var paires = Math.floor(l.quantite / 2);
-            entier.quantite += paires; entier.moities = (entier.moities || 0) + paires * 2;
-            l.quantite = l.quantite % 2;
-          });
-          p.lignes = p.lignes.filter(function (l) { return l.quantite > 0; });
+          var aMoities = p.lignes.some(function (l) { return l.mode !== 'coupe' && MOITIE.test(l.portion); });
+          if (!aMoities) {
+            p.lignes.forEach(function (l) { p.pieces += l.quantite; p.details.push(esc(l.quantite + ' × ' + l.portion)); });
+            produits.push(p);
+            return;
+          }
+          var parAff = {}, ordre = [];
           p.lignes.forEach(function (l) {
-            p.pieces += l.quantite;
-            p.details.push(esc(l.quantite + ' × ' + l.portion) +
-              (l.moities ? ' <span class="non-imprime" style="color:var(--texte-doux);font-size:13px">(dont ' + (l.moities / 2) + ' pour ' + l.moities + ' moitiés commandées)</span>' : ''));
+            var a = affinage(l.portion);
+            if (!parAff[a]) { parAff[a] = { entiers: 0, demis: 0 }; ordre.push(a); }
+            if (MOITIE.test(l.portion)) parAff[a].demis += l.quantite; else parAff[a].entiers += l.quantite;
+          });
+          ordre.forEach(function (a) {
+            var x = parAff[a], total = x.entiers + x.demis / 2;
+            produits.push({ nom: p.nom + (a !== 'entier' ? ' — ' + a : ''), coupe: false, poids: 0, pieces: total,
+              details: [esc((x.entiers || !x.demis ? x.entiers + ' entier' + (x.entiers > 1 ? 's' : '') : '') + (x.entiers && x.demis ? ' + ' : '') + (x.demis ? x.demis + ' demi' + (x.demis > 1 ? 's' : '') : ''))],
+              totalTxt: nb(total) + ' entier' + (total > 1 ? 's' : '') });
           });
         });
+        c.produits = produits;
       });
       var h = '';
       if (fermes.length > 1) {
@@ -591,7 +601,7 @@
         cats.forEach(function (c) {
           h += '<tr class="cat"><td colspan="3">' + esc(c.nom) + '</td></tr>';
           c.produits.forEach(function (p) {
-            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : '')) + '</td></tr>';
+            h += '<tr><td>' + esc(p.nom) + '</td><td>' + p.details.join('<br>') + '</td><td class="n">' + (p.coupe ? esc(kg(p.poids)) : (p.totalTxt ? esc(p.totalTxt) : p.pieces + ' pièce' + (p.pieces > 1 ? 's' : ''))) + '</td></tr>';
           });
         });
         h += '</tbody></table>';
