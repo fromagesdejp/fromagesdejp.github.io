@@ -157,7 +157,7 @@
     app.onclick = null; app.onchange = null; app.onkeydown = null;
     // L'accueil est dans admin-accueil.js (l'ancien reste en secours)
     var f = { accueil: (window.FJP_VUES && window.FJP_VUES.accueil) || vueAccueil, commandes: (window.FJP_VUES && window.FJP_VUES.pesee) || vueCommandes, paiements: vuePaiements, gourmets: vueGourmets, ferme: vueFerme, reglages: vueReglages }[vue] || (window.FJP_VUES && window.FJP_VUES[vue]) || vueAccueil;
-    chargerCampagne().then(function () { dessinerBarreCamp(vue); return f(); }).catch(erreur);
+    chargerCampagne().then(function () { return window.FJP_WA ? window.FJP_WA.pret() : null; }).then(function () { dessinerBarreCamp(vue); return f(); }).catch(erreur);
     window.scrollTo(0, 0);
   }
   onglets.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) aller(b.dataset.vue); });
@@ -313,7 +313,8 @@
             '<span class="mt">' + prix(c.montant) + '</span>' +
             '<span style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;width:100%;min-width:0;margin-top:4px">' +
             '<button class="btn" type="button" data-payer="' + c.id + '" data-moyen="virement">Virement reçu</button>' +
-            '<button class="btn clair" type="button" data-relancer="' + c.id + '">Relancer</button></span></div>';
+            '<button class="btn clair" type="button" data-relancer="' + c.id + '">Relancer</button>' +
+            (g.telephone && window.FJP_WA ? window.FJP_WA.bouton(g.telephone, window.FJP_WA.messages.relance(g, c, campagne), 'Relancer par WhatsApp') : '') + '</span></div>';
         });
         h += '</div>';
         if (payes.length) {
@@ -393,6 +394,7 @@
           if (ouvert) {
             h += '<div class="g-menu">' +
               (g.actif ? '<button type="button" data-envoyer="' + g.id + '">Envoyer le lien par mail</button>' +
+                (g.jeton && window.FJP_WA ? window.FJP_WA.bouton(g.telephone, window.FJP_WA.messages.lien(g, campagne), 'Envoyer le lien par WhatsApp', 'g-wa') : '') +
                 (g.jeton ? '<button type="button" data-voir="' + g.id + '">Voir le lien</button>' : '') +
                 '<button type="button" data-lien="' + g.id + '">' + (g.jeton_cree_le ? 'Nouveau lien' : 'Créer le lien') + '</button>' : '') +
               '<button type="button" data-modifier="' + g.id + '">Modifier</button>' +
@@ -630,7 +632,7 @@
           signature: document.getElementById('r-signature').value.trim() || 'Amitié JP',
           taux_transport_kg: Number(document.getElementById('r-taux').value) || 0
         };
-        api('reglages?id=eq.1', { method: 'PATCH', body: corps }).then(function () { toast('Réglages enregistrés'); })
+        api('reglages?id=eq.1', { method: 'PATCH', body: corps }).then(function () { if (window.FJP_WA) window.FJP_WA.oublier(); toast('Réglages enregistrés'); })
           .catch(function (err) { toast('Erreur : ' + esc(err.message)); });
       };
     });

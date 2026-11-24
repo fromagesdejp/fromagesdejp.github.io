@@ -149,6 +149,14 @@
         var exclus = c.exclus || [];
         var nbInvites = gourmets.filter(function (g) { return exclus.indexOf(g.id) < 0; }).length;
         var tous = nbInvites === gourmets.length;
+        // Annonce pour un groupe WhatsApp (gratuit : WhatsApp s'ouvre avec le message, on choisit le groupe)
+        if (window.FJP_WA && c.statut !== 'terminee') {
+          var annonce = window.FJP_WA.messages.ouverture(c, plusieursFermes ? nomFerme(c.ferme_id) : '');
+          h += '<section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Annonce WhatsApp</h2>' +
+            '<p style="margin:0 0 10px;font-size:14px;color:var(--texte-doux)">Pour prévenir un groupe WhatsApp de gourmets. WhatsApp s’ouvre avec le message prêt : choisissez le groupe, puis « Envoyer ». (Chaque gourmet garde son lien personnel, reçu par mail.)</p>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">' + window.FJP_WA.bouton(null, annonce, 'Partager sur WhatsApp') +
+            '<button class="btn clair" type="button" data-copier-annonce="' + c.id + '">Copier le message</button></div></section>';
+        }
         h += '<section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Gourmets invités</h2>' +
           '<p style="margin:0 0 10px;font-size:14px;color:var(--texte-doux)">Ils reçoivent le mail d’ouverture et les rappels, et voient cette campagne sur leur bon (les autres ne la voient pas) : <b style="color:var(--texte)">' + nbInvites + ' gourmet' + (nbInvites > 1 ? 's' : '') + ' sur ' + gourmets.length + '</b>.</p>' +
           '<label style="display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px;padding:8px 0;cursor:pointer"><input type="checkbox" id="dest-tous" style="width:22px;height:22px"' + (tous ? ' checked' : '') + '> Inviter tout le monde</label>' +
@@ -247,6 +255,13 @@
         if (d.supPt) {
           if (!window.confirm('Supprimer ce point de livraison ?')) return;
           api('points_livraison?id=eq.' + d.supPt, { method: 'DELETE' }).then(function () { return recharger('Point supprimé'); }).catch(echec);
+          return;
+        }
+        if (d.copierAnnonce) {
+          var ca = camps.filter(function (y) { return y.id === Number(d.copierAnnonce); })[0];
+          var txt = window.FJP_WA.messages.ouverture(ca, plusieursFermes ? nomFerme(ca.ferme_id) : '');
+          if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Message copié : collez-le dans WhatsApp'); }, function () { window.prompt('Copiez ce message :', txt); });
+          else window.prompt('Copiez ce message :', txt);
           return;
         }
         if (d.copierPts) {

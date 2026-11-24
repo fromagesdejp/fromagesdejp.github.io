@@ -212,6 +212,10 @@
           (c.paye ? ' · <b style="color:#1E7A46">payée (' + esc(MOYENS[c.moyen] || '') + ')</b>' : '') + '</p>';
         if (c.prete_le) {
           h += '<p class="pe-ok" style="margin:0 0 10px">✓ Validée, mail envoyé au gourmet' + (c.paye ? ' · payée' : '') + '</p>';
+          if (g.telephone && window.FJP_WA) {
+            var pt = (FJP.points() || []).filter(function (x) { return x.id === c.point_id; })[0];
+            h += '<div style="margin:0 0 10px">' + window.FJP_WA.bouton(g.telephone, window.FJP_WA.messages.arrivee(g, c, pt, campagne), 'Prévenir aussi par WhatsApp') + '</div>';
+          }
           if (!c.paye) h += '<button class="btn clair" type="button" data-rouvrir="' + c.id + '">Corriger (annuler la validation)</button>';
         } else {
           h += '<button class="bouton" type="button" data-valider="' + c.id + '"' + (k < n ? ' disabled' : '') + '>' + texteValider(c) + '</button>';
