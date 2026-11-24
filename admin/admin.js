@@ -584,6 +584,15 @@
         });
         c.produits = produits;
       });
+      // Ferme d'une seule rubrique (ex. Ferme de la Treille, que des chèvres) : chaque produit devient un titre,
+      // avec une ligne par affinage (Normal, Moelleux, Sec…), comme les St-Nectaire de l'autre ferme.
+      if (cats.length === 1 && !cats[0].produits.some(function (p) { return p.coupe || p.totalTxt; })) {
+        cats = cats[0].produits.map(function (p) {
+          return { nom: p.nom, produits: p.lignes.map(function (l) {
+            return { nom: p.nom + ' — ' + l.portion, coupe: false, pieces: l.quantite, details: [esc(l.quantite + ' × ' + l.portion)] };
+          }) };
+        });
+      }
       var h = '';
       if (fermes.length > 1) {
         h += '<div class="filtres non-imprime" style="margin-top:16px">' + fermes.map(function (f) {
